@@ -2,19 +2,54 @@
   "name": "@lugu-manus/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
+    "check": "biome check --apply ."
+  },
   "private": true,
-  "dependencies": {},
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "@nx/esbuild": "20.6.2",
     "@nx/js": "20.6.2",
+    "@nx/node": "^20.6.2",
+    "@nx/react": "20.6.2",
+    "@nx/vite": "20.6.2",
+    "@nx/vue": "^20.6.2",
+    "@nx/web": "20.6.2",
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
+    "@types/node": "^20.0.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-vue": "^4.5.0",
+    "@vitest/ui": "^3.0.0",
+    "@vue/test-utils": "^2.4.1",
+    "autoprefixer": "10.4.13",
+    "esbuild": "^0.19.2",
+    "jiti": "2.4.2",
+    "jsdom": "~22.1.0",
     "nx": "20.6.2",
+    "postcss": "8.4.38",
+    "tailwindcss": "3.4.3",
     "tslib": "^2.3.0",
-    "typescript": "~5.7.2"
+    "typescript": "~5.7.2",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0",
+    "vue-tsc": "^2.0.0"
   },
-  "workspaces": [
-    "packages/*"
-  ]
+  "workspaces": ["apps/*", "packages/*"],
+  "dependencies": {
+    "husky": "^9.1.7",
+    "openai": "^4.89.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "vue": "^3.3.4"
+  }
 }

@@ -1,0 +1,15 @@
+{
+  "unocss.root": [
+    "./apps/renderer"
+  ],
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports.biome": "always"
+  },
+  "[javascript][typescript][typescriptreact][javascriptreact][json][jsonc]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "biome.searchInPath": true,
+  "biome.enabled": true,
+  "biome.lspBin": "node_modules/.bin/biome"
+}

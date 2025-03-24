@@ -1,0 +1,6 @@
+
+echo "Checking for linting errors..."
+bunx biome check --write .
+
+echo "Formatting code..."
+bunx biome format --write .

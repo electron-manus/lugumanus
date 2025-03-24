@@ -1,0 +1,57 @@
+{
+  "name": "@lugu-manus/main",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": ["{options.outputPath}"],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "apps/main/dist",
+          "format": ["esm"],
+          "bundle": false,
+          "main": "apps/main/src/main.ts",
+          "tsConfig": "apps/main/tsconfig.app.json",
+          "assets": ["apps/main/src/assets"],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "serve": {
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": ["build"],
+        "options": {
+          "buildTarget": "@lugu-manus/main:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@lugu-manus/main:build:development"
+          },
+          "production": {
+            "buildTarget": "@lugu-manus/main:build:production"
+          }
+        }
+      }
+    }
+  }
+}
