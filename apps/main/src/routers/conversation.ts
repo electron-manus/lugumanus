@@ -19,36 +19,14 @@ const conversationRouter = t.router({
       return conversation;
     }),
 
-  // 获取分页会话
-  getConversations: t.procedure
-    .input(
-      z.object({
-        page: z.number().int().positive().default(1),
-        pageSize: z.number().int().positive().default(10),
-      }),
-    )
-    .query(async ({ input, ctx }) => {
-      const { page, pageSize } = input;
-      const skip = (page - 1) * pageSize;
-
-      const [conversations, totalCount] = await Promise.all([
-        ctx.prisma.conversation.findMany({
-          skip,
-          take: pageSize,
-          orderBy: {
-            updatedAt: 'desc',
-          },
-        }),
-        ctx.prisma.conversation.count(),
-      ]);
-
-      return {
-        data: conversations,
-        totalPages: Math.ceil(totalCount / pageSize),
-        currentPage: page,
-        totalCount,
-      };
-    }),
+  getAllConversations: t.procedure.query(async ({ ctx }) => {
+    const conversations = await ctx.prisma.conversation.findMany({
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+    return conversations;
+  }),
 
   // 更新会话标题
   updateConversationTitle: t.procedure

@@ -54,51 +54,50 @@ const messageRouter = t.router({
       return { success: true };
     }),
 
-  // 分页获取会话消息
+  // 基于游标分页获取会话消息
   getMessagesByConversation: t.procedure
     .input(
       z.object({
-        conversationId: z.string(),
-        page: z.number().min(1).default(1), // 页码，从1开始
-        pageSize: z.number().min(1).max(100).default(20), // 每页消息数量
+        conversationId: z.string().optional(),
+        limit: z.number().min(1).max(100).default(20), // 每页消息数量
+        cursor: z.string().optional(), // 游标，用于分页
       }),
     )
     .query(async ({ input, ctx }) => {
-      const { conversationId, page, pageSize } = input;
+      const { conversationId, limit, cursor } = input;
+      if (!conversationId) {
+        return {
+          items: [],
+          nextCursor: undefined,
+        };
+      }
+      // 获取消息列表
+      const messages = await ctx.prisma.message.findMany({
+        include: {
+          task: true,
+        },
+        where: {
+          conversationId,
+        },
+        take: limit + 1, // 多获取一条用于确定是否有下一页
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: {
+          createdAt: 'desc', // 按创建时间降序排列，最新的消息在前
+        },
+      });
 
-      // 计算要跳过的消息数量
-      const skip = (page - 1) * pageSize;
+      let nextCursor: string | undefined = undefined;
 
-      // 并行执行总数查询和消息查询
-      const [total, messages] = await Promise.all([
-        ctx.prisma.message.count({
-          where: {
-            conversationId,
-          },
-        }),
-        ctx.prisma.message.findMany({
-          include: {
-            task: true,
-          },
-          where: {
-            conversationId,
-          },
-          skip,
-          take: pageSize,
-          orderBy: {
-            createdAt: 'desc', // 按创建时间降序排列，最新的消息在前
-          },
-        }),
-      ]);
-
-      // 计算总页数
-      const totalPages = Math.ceil(total / pageSize);
+      // 如果结果数量超过请求的限制，说明有下一页
+      if (messages.length > limit) {
+        // 移除额外获取的项
+        const nextItem = messages.pop();
+        nextCursor = nextItem?.id;
+      }
 
       return {
-        data: messages,
-        totalPages,
-        currentPage: page,
-        totalCount: total,
+        items: messages,
+        nextCursor,
       };
     }),
 });
