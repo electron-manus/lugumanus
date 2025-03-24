@@ -29,3 +29,55 @@ enum ModelType {
   VIDEO_TO_TEXT
   VOICE_TO_TEXT
 }
+
+// 聊天会话
+model Conversation {
+  id        String    @id @default(uuid())
+  title     String    @default("新对话")
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// 聊天记录
+model Message {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  content        String // 消息内容
+  type           MessageType // 消息类型
+  role           MessageRole // 消息角色(用户/AI)
+  taskId         String?      @unique
+  task           Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  TASK
+}
+
+model Task {
+  id             String   @id @default(uuid())
+  title          String
+  type           TaskType
+  previewHtmlUrl String
+  attachment     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  message        Message?
+}
+
+enum TaskType {
+  OPEN_URL
+  SEARCH
+  SUMMARY_WEBPAGE
+  CREATE
+  EDITOR
+}
