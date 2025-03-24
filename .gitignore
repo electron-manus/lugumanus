@@ -46,3 +46,4 @@ vitest.config.*.timestamp*
 __locals__/
 .nx
 .cursor
+*.db

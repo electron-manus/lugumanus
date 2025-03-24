@@ -4,7 +4,8 @@
   ],
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.organizeImports.biome": "always"
+    "source.fixAll.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
   },
   "[javascript][typescript][typescriptreact][javascriptreact][json][jsonc]": {
     "editor.defaultFormatter": "biomejs.biome"
@@ -13,6 +14,9 @@
   "biome.enabled": true,
   "biome.lspBin": "node_modules/.bin/biome",
   "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[typescript]": {
     "editor.defaultFormatter": "biomejs.biome"
   }
 }

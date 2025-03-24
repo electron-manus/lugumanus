@@ -2,7 +2,7 @@ import { Bubble, Sender } from '@ant-design/x';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemoizedFn } from 'ahooks';
 import clsx from 'clsx';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../utils/trpc';
 import MessageBubble from './MessageBubble';
 
@@ -14,7 +14,6 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
   const queryClient = useQueryClient();
   const {
     data: messages,
-    isLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -25,13 +24,19 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
     ),
   );
 
-  // 使用 queryClient 使查询缓存失效
+  const flatMessages = messages?.pages.flatMap((page) => page.items) ?? [];
+
+  const [currentMessage, setCurrentMessage] = useState<(typeof flatMessages)[number] | null>(null);
+
   const { mutate: sendMessage } = useMutation(
     trpc.message.addMessage.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (message) => {
         queryClient.invalidateQueries({
           queryKey: trpc.message.getMessagesByConversation.queryKey({ conversationId }),
         });
+
+        setCurrentMessage(message);
+        setShouldScrollToBottom(true);
       },
     }),
   );
@@ -50,19 +55,14 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
 
   const onSubmit = (nextContent: string) => {
     if (!nextContent || !conversationId) return;
-
     sendMessage({
       conversationId,
       content: nextContent,
       role: 'USER',
       type: 'TEXT',
     });
-
     setContent('');
-    setShouldScrollToBottom(true);
   };
-
-  const flatMessages = messages?.pages.flatMap((page) => page.items) ?? [];
 
   // 向上滚动加载更多消息
   const handleScroll = React.useCallback(() => {
@@ -117,6 +117,13 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
     scrollToBottom();
   }, [scrollToBottom]);
 
+  const renderMessages = useMemo(() => {
+    if (!currentMessage) {
+      return flatMessages;
+    }
+    return [...flatMessages, currentMessage];
+  }, [flatMessages, currentMessage]);
+
   return (
     <div className="w-[500px] px-6">
       <div className={clsx('overflow-auto h-[calc(100vh-100px)]')} ref={messagesRef}>
@@ -125,7 +132,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
             <span className="text-gray-500 text-sm">正在加载更多消息...</span>
           </div>
         )}
-        {flatMessages.map((it) => (
+        {renderMessages.map((it) => (
           <div key={it.id} className="mb-4 flex flex-row">
             <Bubble
               key={it.id}
@@ -143,9 +150,11 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
         value={content}
         onSubmit={onSubmit}
         onChange={setContent}
-        loading={isLoading}
+        loading={
+          currentMessage?.status ? ['PENDING', 'IDLE'].includes(currentMessage?.status) : false
+        }
         onCancel={() => {
-          //
+          // 取消当前消息
         }}
         placeholder={!conversationId ? '请选择一个会话' : '请输入你想完成的任务'}
         disabled={!conversationId}

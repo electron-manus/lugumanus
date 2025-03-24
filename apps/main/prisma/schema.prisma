@@ -41,15 +41,16 @@ model Conversation {
 
 // 聊天记录
 model Message {
-  id             String       @id @default(uuid())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String        @id @default(uuid())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   conversationId String
   content        String // 消息内容
   type           MessageType // 消息类型
   role           MessageRole // 消息角色(用户/AI)
-  taskId         String?      @unique
-  task           Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
+  taskId         String?       @unique
+  task           Task?         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  status         MessageStatus @default(PENDING)
 }
 
 enum MessageRole {
@@ -61,6 +62,13 @@ enum MessageType {
   TEXT
   IMAGE
   TASK
+}
+
+enum MessageStatus {
+  IDLE
+  PENDING
+  COMPLETED
+  FAILED
 }
 
 model Task {

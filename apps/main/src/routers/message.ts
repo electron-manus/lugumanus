@@ -22,6 +22,10 @@ const messageRouter = t.router({
           role: input.role,
           type: input.type,
           taskId: input.taskId,
+          status: 'IDLE',
+        },
+        include: {
+          task: true,
         },
       });
 

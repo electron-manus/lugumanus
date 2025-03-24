@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { initTRPC } from '@trpc/server';
 import { ZodError } from 'zod';
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 // 创建上下文
 export const createContext = async () => {
