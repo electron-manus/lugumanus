@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 模型配置
+model ModelConfig {
+  id          String    @id @default(uuid())
+  apiKey      String
+  apiEndpoint String
+  name        String
+  type        ModelType @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum ModelType {
+  TEXT
+  CODE
+  LONG_TEXT
+  IMAGE_TO_TEXT
+  VIDEO_TO_TEXT
+  VOICE_TO_TEXT
+}

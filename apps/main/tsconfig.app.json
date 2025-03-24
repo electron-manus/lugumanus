@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "types": ["node"],
+    "types": ["node", "bun-types"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "rootDir": "src",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
   },

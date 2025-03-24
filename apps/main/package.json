@@ -2,56 +2,36 @@
   "name": "@lugu-manus/main",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
+  "main": "dist/main.js",
   "nx": {
+    "$schema": "../../node_modules/nx/schemas/nx-schema.json",
     "targets": {
-      "build": {
-        "executor": "@nx/esbuild:esbuild",
-        "outputs": ["{options.outputPath}"],
-        "defaultConfiguration": "production",
-        "options": {
-          "platform": "node",
-          "outputPath": "apps/main/dist",
-          "format": ["esm"],
-          "bundle": false,
-          "main": "apps/main/src/main.ts",
-          "tsConfig": "apps/main/tsconfig.app.json",
-          "assets": ["apps/main/src/assets"],
-          "esbuildOptions": {
-            "sourcemap": true,
-            "outExtension": {
-              ".js": ".js"
-            }
-          }
-        },
-        "configurations": {
-          "development": {},
-          "production": {
-            "esbuildOptions": {
-              "sourcemap": false,
-              "outExtension": {
-                ".js": ".js"
-              }
-            }
-          }
-        }
-      },
-      "serve": {
-        "executor": "@nx/js:node",
+      "dev": {
+        "executor": "nx:run-commands",
         "defaultConfiguration": "development",
-        "dependsOn": ["build"],
         "options": {
-          "buildTarget": "@lugu-manus/main:build",
-          "runBuildTargetDependencies": false
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "@lugu-manus/main:build:development"
-          },
-          "production": {
-            "buildTarget": "@lugu-manus/main:build:production"
-          }
+          "cwd": "apps/main",
+          "commands": [
+            {
+              "command": "bun run scripts/bootstrap.tsx"
+            }
+          ]
         }
       }
     }
+  },
+  "dependencies": {
+    "@prisma/client": "6.5.0",
+    "@trpc/server": "^11.0.0",
+    "electron": "^35.0.3",
+    "electron-is-dev": "^3.0.1",
+    "prisma": "^6.5.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
+    "bun-types": "^1.2.5",
+    "nodemon": "^3.0.3"
   }
 }
