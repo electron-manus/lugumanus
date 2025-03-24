@@ -11,5 +11,8 @@
   },
   "biome.searchInPath": true,
   "biome.enabled": true,
-  "biome.lspBin": "node_modules/.bin/biome"
+  "biome.lspBin": "node_modules/.bin/biome",
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  }
 }

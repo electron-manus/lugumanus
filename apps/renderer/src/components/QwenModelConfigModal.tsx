@@ -56,7 +56,7 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
 
   return (
     <Modal
-      title="千问 API 密钥"
+      title="大模型配置"
       open={visible}
       onOk={handleAuthenticate}
       onCancel={onClose}
