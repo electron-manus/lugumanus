@@ -30,7 +30,7 @@ export class PdfAnalysisAgent extends BaseAgent implements SpecializedToolAgent 
 
   async execute(query: Record<string, string>, taskRef: AgentTaskRef): Promise<unknown> {
     const url = query.url;
-    const requirement = query.requirement || '全面分析文档内容';
+    const requirement = query.requirement || 'Please analyze the content of the PDF document.';
     let pdfBuffer: Buffer;
 
     // 判断是网络URL还是本地文件路径
