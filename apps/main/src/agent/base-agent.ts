@@ -1,3 +1,4 @@
+import type { ModelType } from '@prisma/client';
 import type {
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
@@ -83,8 +84,10 @@ export class BaseAgent {
 
   async generateResponse(
     abortSignal: AbortSignal,
+    messageHistory?: Message[],
     tools?: SpecializedToolAgent[],
     params?: Partial<ChatCompletionCreateParamsStreaming>,
+    model: ModelType = 'TEXT',
   ): Promise<ChatCompletion> {
     try {
       if (abortSignal.aborted) {
@@ -111,10 +114,10 @@ export class BaseAgent {
       }
 
       const modelProvider = await loadSdkAndModel();
-      const chatCompletion = await modelProvider.TEXT.sdk.chat.completions.create(
+      const chatCompletion = await modelProvider[model].sdk.chat.completions.create(
         {
-          model: modelProvider.TEXT.model,
-          messages: this.messageHistory,
+          model: modelProvider[model].model,
+          messages: messageHistory ?? this.messageHistory,
           temperature: this.temperature,
           ...generateParams,
           stream: true,
@@ -210,6 +213,7 @@ export class BaseAgent {
     taskRef: AgentTaskRef,
     tools?: SpecializedToolAgent[],
     params?: Partial<ChatCompletionCreateParamsStreaming>,
+    model: ModelType = 'TEXT',
   ): Promise<ChatCompletion | null> {
     if (!this.systemMessage) {
       throw new Error('System message is not set');
@@ -234,7 +238,13 @@ export class BaseAgent {
       const MAX_TOOL_EXECUTIONS = 20;
 
       while (!taskRef.abortSignal.aborted && toolExecutionCount < MAX_TOOL_EXECUTIONS) {
-        chatCompletion = await this.generateResponse(taskRef.abortSignal, availableTools, params);
+        chatCompletion = await this.generateResponse(
+          taskRef.abortSignal,
+          this.messageHistory,
+          availableTools,
+          params,
+          model,
+        );
         const toolCalls = await lastValueFrom(chatCompletion.toolCallsStream);
         if (!toolCalls.length) {
           break;
