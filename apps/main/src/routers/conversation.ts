@@ -1,4 +1,3 @@
-import { MessageRole, MessageType } from '@prisma/client';
 import { z } from 'zod';
 import { t } from '../trpc.js';
 
@@ -25,6 +24,7 @@ const conversationRouter = t.router({
         updatedAt: 'desc',
       },
     });
+
     return conversations;
   }),
 

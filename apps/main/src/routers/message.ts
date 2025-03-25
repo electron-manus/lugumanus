@@ -1,4 +1,4 @@
-import { MessageRole, MessageType } from '@prisma/client';
+import { MessageRole, MessageStatus, MessageType } from '@prisma/client';
 import { z } from 'zod';
 import { t } from '../trpc.js';
 
@@ -40,6 +40,27 @@ const messageRouter = t.router({
       });
 
       return message;
+    }),
+
+  // 更新消息
+  updateMessage: t.procedure
+    .input(
+      z.object({
+        id: z.string(),
+        content: z.string(),
+        status: z.nativeEnum(MessageStatus),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      await ctx.prisma.message.update({
+        where: {
+          id: input.id,
+        },
+        data: {
+          content: input.content,
+          status: input.status,
+        },
+      });
     }),
 
   // 删除消息
@@ -103,6 +124,22 @@ const messageRouter = t.router({
         items: messages,
         nextCursor,
       };
+    }),
+
+  getIdleMessage: t.procedure
+    .input(z.object({ conversationId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const message = await ctx.prisma.message.findFirst({
+        where: {
+          conversationId: input.conversationId,
+          status: 'IDLE',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return message;
     }),
 });
 
