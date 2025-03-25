@@ -1,8 +1,9 @@
 import { Bubble, Sender } from '@ant-design/x';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import { useSubscription } from '@trpc/tanstack-react-query';
 import { useMemoizedFn } from 'ahooks';
 import clsx from 'clsx';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { trpc } from '../utils/trpc';
 import MessageBubble from './MessageBubble';
 
@@ -11,45 +12,81 @@ interface ChatContainerProps {
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
-  const queryClient = useQueryClient();
+  // State and Refs
+  const [content, setContent] = React.useState('');
+  const messagesRef = React.useRef<HTMLDivElement>(null);
+  const [initialScrollHeight, setInitialScrollHeight] = React.useState<number | null>(null);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(true);
+  const [streamMessages, setStreamMessages] = React.useState<(typeof messageStream)[]>([]);
+
+  // Queries and Mutations
   const {
     data: messages,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    refetch,
   } = useInfiniteQuery(
     trpc.message.getMessagesByConversation.infiniteQueryOptions(
       { conversationId },
-      { getNextPageParam: (lastPage) => lastPage.nextCursor, enabled: !!conversationId },
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        enabled: !!conversationId,
+      },
     ),
   );
 
+  // Memoized Values
   const flatMessages = messages?.pages.flatMap((page) => page.items) ?? [];
+  const lastMessage = flatMessages[flatMessages.length - 1];
 
-  const [currentMessage, setCurrentMessage] = useState<(typeof flatMessages)[number] | null>(null);
+  const { data: messageStream, status } = useSubscription(
+    trpc.conversation.subscribeConversation.subscriptionOptions(
+      {
+        id: conversationId as string,
+      },
+      {
+        enabled: lastMessage?.status === 'IDLE',
+      },
+    ),
+  );
 
   const { mutate: sendMessage } = useMutation(
     trpc.message.addMessage.mutationOptions({
-      onSuccess: (message) => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.message.getMessagesByConversation.queryKey({ conversationId }),
-        });
-
-        setCurrentMessage(message);
-        setShouldScrollToBottom(true);
+      onSuccess: () => {
+        refetch();
       },
     }),
   );
 
-  const [content, setContent] = React.useState('');
-  const messagesRef = React.useRef<HTMLDivElement>(null);
-  const [initialScrollHeight, setInitialScrollHeight] = React.useState<number | null>(null);
-  const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(true);
+  const displayMessages = useMemo(() => {
+    if (!streamMessages.length) return flatMessages;
 
-  // 滚动到底部
+    const messages = [...flatMessages];
+    for (const streamMsg of streamMessages) {
+      if (!streamMsg?.id) continue;
+      const existingIndex = messages.findIndex((msg) => msg.id === streamMsg.id);
+      if (existingIndex >= 0) {
+        messages[existingIndex] = {
+          ...messages[existingIndex],
+          ...streamMsg,
+        };
+      } else {
+        messages.push(streamMsg);
+      }
+    }
+
+    return messages;
+  }, [flatMessages, streamMessages]);
+
+  // Functions
   const scrollToBottom = useMemoizedFn(() => {
     if (messagesRef.current) {
-      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      messagesRef.current.scrollTo({
+        top: messagesRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+      setShouldScrollToBottom(false);
     }
   });
 
@@ -64,25 +101,21 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
     setContent('');
   };
 
-  // 向上滚动加载更多消息
   const handleScroll = React.useCallback(() => {
     const container = messagesRef.current;
     if (!container || !hasNextPage || isFetchingNextPage) return;
 
-    // 当用户手动滚动时，不自动滚动到底部
     setShouldScrollToBottom(
       container.scrollTop + container.clientHeight >= container.scrollHeight - 10,
     );
 
-    // 当滚动到顶部附近时（距离顶部小于100px）加载更多
     if (container.scrollTop < 100) {
-      // 记录当前滚动高度以便后续维持相对滚动位置
       setInitialScrollHeight(container.scrollHeight);
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // 监听滚动事件
+  // Effects
   useEffect(() => {
     const container = messagesRef.current;
     if (!container) return;
@@ -93,7 +126,34 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
     };
   }, [handleScroll]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 加载更多消息后保持滚动位置
+  useEffect(() => {
+    if (status === 'idle') {
+      refetch();
+    }
+  }, [status, refetch]);
+
+  useEffect(() => {
+    if (messageStream?.id) {
+      setStreamMessages((prev) => {
+        const existingIndex = prev.findIndex((msg) => msg?.id === messageStream.id);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = messageStream;
+          return updated;
+        }
+        return [...prev, messageStream];
+      });
+    }
+  }, [messageStream]);
+
+  useEffect(() => {
+    if (messages) {
+      setStreamMessages([]);
+      setShouldScrollToBottom(true);
+    }
+  }, [messages]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     const container = messagesRef.current;
     if (container && initialScrollHeight) {
@@ -103,38 +163,36 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
         setInitialScrollHeight(null);
       }
     }
-  }, [flatMessages.length, initialScrollHeight]);
+  }, [displayMessages.length, initialScrollHeight]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 初次加载和消息更新后滚动到底部
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     if (shouldScrollToBottom && !isFetchingNextPage) {
       scrollToBottom();
     }
-  }, [flatMessages.length, shouldScrollToBottom, isFetchingNextPage, scrollToBottom]);
+  }, [displayMessages.length, shouldScrollToBottom, isFetchingNextPage, scrollToBottom]);
 
-  // 组件挂载后滚动到底部
   useEffect(() => {
     scrollToBottom();
   }, [scrollToBottom]);
 
-  const renderMessages = useMemo(() => {
-    if (!currentMessage) {
-      return flatMessages;
-    }
-    return [...flatMessages, currentMessage];
-  }, [flatMessages, currentMessage]);
+  const lastDisplayMessage = displayMessages[displayMessages.length - 1];
 
   return (
     <div className="w-[500px] px-6">
-      <div className={clsx('overflow-auto h-[calc(100vh-100px)]')} ref={messagesRef}>
+      <div
+        className={clsx('overflow-auto h-[calc(100vh-100px)] box-border pt-6 pr-6')}
+        ref={messagesRef}
+      >
         {isFetchingNextPage && (
           <div className="flex justify-center py-2">
             <span className="text-gray-500 text-sm">正在加载更多消息...</span>
           </div>
         )}
-        {renderMessages.map((it) => (
+        {displayMessages.map((it) => (
           <div key={it.id} className="mb-4 flex flex-row">
             <Bubble
+              header={it.roleName}
               key={it.id}
               className="w-full"
               classNames={{
@@ -151,7 +209,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) => {
         onSubmit={onSubmit}
         onChange={setContent}
         loading={
-          currentMessage?.status ? ['PENDING', 'IDLE'].includes(currentMessage?.status) : false
+          lastDisplayMessage?.status
+            ? ['PENDING', 'IDLE'].includes(lastDisplayMessage?.status)
+            : false
         }
         onCancel={() => {
           // 取消当前消息
