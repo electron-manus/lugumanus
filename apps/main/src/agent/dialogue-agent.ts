@@ -59,10 +59,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
   }
 
   async execute(query: Parameters, taskRef: AgentTaskRef): Promise<string> {
-    this.userAgent.initialSystemMessage(
-      userPrompt(query.question, query.expected_result, query.context),
-    );
-
+    this.userAgent.initialSystemMessage(userPrompt(query.question));
     this.assistantAgent.initialSystemMessage(
       assistantPrompt(query.question, query.expected_result, query.context),
     );
@@ -100,15 +97,15 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
       return null;
     }
 
-    let messageModel = await taskRef.createMessage();
+    let messageModel = await taskRef.createMessage('User Agent');
     taskRef.observer.next(messageModel);
     userAgentCompletion.contentStream.subscribe({
       next: (chunk) => {
-        messageModel.content += chunk;
+        messageModel.content = chunk;
         taskRef.observer.next(messageModel);
       },
-      complete() {
-        taskRef.completeMessage(messageModel);
+      async complete() {
+        await taskRef.completeMessage(messageModel);
         taskRef.observer.next(messageModel);
       },
       error(err) {
@@ -130,11 +127,11 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
       return null;
     }
 
-    messageModel = await taskRef.createMessage();
+    messageModel = await taskRef.createMessage('Assistant Agent');
     taskRef.observer.next(messageModel);
     assistantAgentCompletion.contentStream.subscribe({
       next: (chunk) => {
-        messageModel.content += chunk;
+        messageModel.content = chunk;
         taskRef.observer.next(messageModel);
       },
       complete() {
@@ -150,7 +147,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
     let assistantAgentContent = await lastValueFrom(assistantAgentCompletion.contentStream);
 
     if (!userAgentContent.includes('TASK_DONE')) {
-      assistantAgentContent += toNextInstructionPrompt();
+      assistantAgentContent += toNextInstructionPrompt(userAgentContent);
     }
 
     return [userAgentContent, assistantAgentContent];

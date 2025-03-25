@@ -1,11 +1,15 @@
-import type { Message, MessageStatus } from '@prisma/client';
+import type { Message, MessageStatus, Task } from '@prisma/client';
 import type { BrowserUse } from 'electron-browser-use';
 import type { ReplaySubject } from 'rxjs';
+
+export type MessageStream = Message & {
+  task: Task | null;
+};
 
 export type AgentTaskRef = {
   abortSignal: AbortSignal;
   browserUse: BrowserUse;
-  observer: ReplaySubject<Message>;
-  createMessage: () => Promise<Message>;
-  completeMessage: (message: Message, status?: MessageStatus) => Promise<void>;
+  observer: ReplaySubject<MessageStream>;
+  createMessage: (roleName: string) => Promise<MessageStream>;
+  completeMessage: (message: MessageStream, status?: MessageStatus) => Promise<void>;
 };

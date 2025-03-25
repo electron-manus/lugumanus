@@ -24,21 +24,22 @@ export class CoordinateRolePlayAgent {
     this.roleAgent.initialSystemMessage(coordinatingUserPrompt(task));
     let message = startCoordinatingRunnerPrompt();
     let assistantCompletion: ChatCompletion | null = null;
+
     while (true) {
       assistantCompletion = await this.roleAgent.run(message, taskRef);
       if (!assistantCompletion) {
         break;
       }
 
-      const messageModel = await taskRef.createMessage();
+      const messageModel = await taskRef.createMessage('Coordinate Agent');
       taskRef.observer.next(messageModel);
       assistantCompletion.contentStream.subscribe({
         next: (value) => {
-          messageModel.content += value;
+          messageModel.content = value;
           taskRef.observer.next(messageModel);
         },
-        complete: () => {
-          taskRef.completeMessage(messageModel);
+        async complete() {
+          await taskRef.completeMessage(messageModel);
           taskRef.observer.complete();
         },
         error: (error) => {

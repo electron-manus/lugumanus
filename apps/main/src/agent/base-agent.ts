@@ -92,7 +92,6 @@ export class BaseAgent {
       }
 
       let generateParams = {} as Omit<ChatCompletionCreateParamsStreaming, 'messages' | 'model'>;
-
       if (tools?.length) {
         generateParams.tools = tools.map((tool) => ({
           type: 'function',
@@ -253,7 +252,7 @@ export class BaseAgent {
         let content = '';
         chatCompletion.contentStream.subscribe({
           next: (value) => {
-            content += value;
+            content = value;
           },
           complete: () => {
             if (content) {
