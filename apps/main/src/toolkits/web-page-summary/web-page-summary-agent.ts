@@ -1,5 +1,3 @@
-// 360 搜索 agent
-
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { BaseAgent } from '../../agent/base-agent.js';
