@@ -7,6 +7,7 @@ import {
   toNextInstructionPrompt,
   userPrompt,
 } from '../prompt/index.js';
+import { searchToolkit } from '../toolkits/search-toolkit/index.js';
 import type { SpecializedToolAgent } from '../toolkits/types.js';
 import { BaseAgent } from './base-agent.js';
 import type { AgentTaskRef } from './type.js';
@@ -44,9 +45,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
   private assistantAgent = new BaseAgent({
     temperature: 0,
-    tools: [
-      // toolkits
-    ],
+    tools: [...searchToolkit],
   });
 
   static readonly MAX_ITERATIONS = 30;
