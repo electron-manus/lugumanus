@@ -5,7 +5,8 @@ import { BaseAgent } from '../../agent/base-agent.js';
 import type { AgentTaskRef } from '../../agent/type.js';
 import type { SpecializedToolAgent } from '../types.js';
 
-import pdf from 'pdf-parse';
+import * as pdfjs from 'pdfjs-dist';
+import type { TextItem } from 'pdfjs-dist/types/src/display/api.js';
 import { chartToolkits } from '../chart-toolkit/index.js';
 
 export class PdfAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
@@ -50,12 +51,27 @@ export class PdfAnalysisAgent extends BaseAgent implements SpecializedToolAgent 
       pdfBuffer = await fs.readFile(filePath);
     }
 
-    // 使用pdf-parse库解析PDF内容
-    const data = await pdf(pdfBuffer);
+    // 使用 pdfjs-dist 库替换 pdf-parse 来解析PDF内容
+    // 设置 worker 源
+    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+    // 加载文档
+    const loadingTask = pdfjs.getDocument({ data: pdfBuffer });
+    const pdfDocument = await loadingTask.promise;
+
+    // 提取文本
+    let pdfText = '';
+    for (let i = 1; i <= pdfDocument.numPages; i++) {
+      const page = await pdfDocument.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items
+        .filter((item): item is TextItem => 'str' in item)
+        .map((item) => item.str);
+      pdfText += `${strings.join(' ')}\n`;
+    }
 
     // 检查PDF文本长度并处理
     const MAX_TEXT_LENGTH = 500000;
-    let pdfText = data.text;
     let lengthWarning = '';
 
     if (pdfText.length > MAX_TEXT_LENGTH) {
