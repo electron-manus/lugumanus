@@ -12,6 +12,8 @@ const messageRouter = t.router({
         role: z.nativeEnum(MessageRole),
         type: z.nativeEnum(MessageType),
         taskId: z.string().optional(),
+        status: z.nativeEnum(MessageStatus).optional(),
+        roleName: z.string().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -22,7 +24,8 @@ const messageRouter = t.router({
           role: input.role,
           type: input.type,
           taskId: input.taskId,
-          status: 'IDLE',
+          status: input.status || 'IDLE',
+          roleName: input.roleName || 'User',
         },
         include: {
           task: true,
@@ -107,7 +110,7 @@ const messageRouter = t.router({
         take: limit + 1, // 多获取一条用于确定是否有下一页
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: {
-          createdAt: 'desc', // 按创建时间降序排列，最新的消息在前
+          createdAt: 'asc', // 按创建时间降序排列，最新的消息在前
         },
       });
 
@@ -130,12 +133,11 @@ const messageRouter = t.router({
     .input(z.object({ conversationId: z.string() }))
     .query(async ({ input, ctx }) => {
       const message = await ctx.prisma.message.findFirst({
-        where: {
-          conversationId: input.conversationId,
-          status: 'IDLE',
-        },
         orderBy: {
           createdAt: 'desc',
+        },
+        include: {
+          task: true,
         },
       });
 

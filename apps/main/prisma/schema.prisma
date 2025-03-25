@@ -46,6 +46,7 @@ model Message {
   conversationId String
   content        String // 消息内容
   type           MessageType // 消息类型
+  roleName       String? // 消息名称
   role           MessageRole // 消息角色(用户/AI)
   taskId         String?       @unique
   task           Task?         @relation(fields: [taskId], references: [id], onDelete: Cascade)

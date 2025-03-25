@@ -1,5 +1,9 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import conversationAgentManager from '../agent/conversation-agent-manager.js';
 import { t } from '../trpc.js';
+import { removeFilterPatterns } from '../utils/filter-stream.js';
+import { observableToGenerator } from '../utils/observable-to-generator.js';
 
 const conversationRouter = t.router({
   // 创建新会话
@@ -61,7 +65,40 @@ const conversationRouter = t.router({
           id: input.id,
         },
       });
-      return { success: true };
+      return { success: true, id: input.id };
+    }),
+
+  subscribeConversation: t.procedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .subscription(async function* ({ input, ctx }) {
+      const conversation = await ctx.prisma.conversation.findUnique({
+        where: { id: input.id },
+      });
+      if (!conversation) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Conversation not found',
+        });
+      }
+      const agentContext = await conversationAgentManager.getOrCreateAgentContext(conversation.id);
+      const observer = await agentContext.agent.start();
+      const generator = observableToGenerator(observer, {
+        bufferSize: 1,
+        processBuffer: (messages) => {
+          return messages.map((message) => {
+            message.content = removeFilterPatterns(message.content);
+            return message;
+          });
+        },
+      });
+
+      for await (const message of generator) {
+        yield message;
+      }
     }),
 });
 
