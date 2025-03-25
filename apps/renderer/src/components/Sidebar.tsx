@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMemoizedFn } from 'ahooks';
 import { Button } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { trpc } from '../utils/trpc';
 import ChatLogo from './ChatLogo';
 import QwenModelConfigModal from './QwenModelConfigModal';
@@ -22,14 +22,29 @@ const Sidebar: React.FC<SidebarProps> = ({ onConversationChange, conversationId 
   );
   const { mutate: deleteConversation } = useMutation(
     trpc.conversation.deleteConversation.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (data) => {
         refetchConversations();
+        if (conversationId === data.id && conversations?.[0]?.id) {
+          onConversationChange?.(conversations[0].id);
+        }
       },
     }),
   );
   const { mutate: createConversation } = useMutation(
-    trpc.conversation.createConversation.mutationOptions(),
+    trpc.conversation.createConversation.mutationOptions({
+      onSuccess: (data) => {
+        refetchConversations();
+        onConversationChange?.(data.id);
+      },
+    }),
   );
+
+  // 自动选择第一个会话
+  useEffect(() => {
+    if (conversations?.length && !conversationId && onConversationChange) {
+      onConversationChange(conversations[0].id);
+    }
+  }, [conversations, conversationId, onConversationChange]);
 
   const menuConfig: ConversationsProps['menu'] = (conversation) => ({
     items: [
@@ -47,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onConversationChange, conversationId 
     ],
     onClick: (menuInfo) => {
       if (menuInfo.key === 'delete') {
-        deleteConversation({ id: conversation.id });
+        deleteConversation({ id: conversation.key });
       } else if (menuInfo.key === 'openFolder') {
         // 处理打开文件夹逻辑
       }
@@ -112,6 +127,3 @@ const Sidebar: React.FC<SidebarProps> = ({ onConversationChange, conversationId 
 };
 
 export default Sidebar;
-function useEffect(arg0: () => void, arg1: string[]) {
-  throw new Error('Function not implemented.');
-}
