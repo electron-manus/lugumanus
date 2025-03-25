@@ -53,6 +53,7 @@ export class PdfAnalysisAgent extends BaseAgent implements SpecializedToolAgent 
 
     // 使用 pdfjs-dist 库替换 pdf-parse 来解析PDF内容
     // 设置 worker 源
+    // TODO: 使用本地 worker 源
     pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
     // 加载文档
