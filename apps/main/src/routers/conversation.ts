@@ -76,36 +76,30 @@ const conversationRouter = t.router({
       }),
     )
     .subscription(async function* ({ input, ctx }) {
-      try {
-        const conversation = await ctx.prisma.conversation.findUnique({
-          where: { id: input.id },
+      const conversation = await ctx.prisma.conversation.findUnique({
+        where: { id: input.id },
+      });
+      if (!conversation) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Conversation not found',
         });
-        if (!conversation) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Conversation not found',
+      }
+      const agentContext = await conversationAgentManager.getOrCreateAgentContext(conversation.id);
+
+      const observer = await agentContext.agent.start();
+      const generator = observableToGenerator(observer, {
+        bufferSize: 1,
+        processBuffer: (messages) => {
+          return messages.map((message) => {
+            message.content = removeFilterPatterns(message.content);
+            return message;
           });
-        }
-        const agentContext = await conversationAgentManager.getOrCreateAgentContext(
-          conversation.id,
-        );
+        },
+      });
 
-        const observer = await agentContext.agent.start();
-        const generator = observableToGenerator(observer, {
-          bufferSize: 1,
-          processBuffer: (messages) => {
-            return messages.map((message) => {
-              message.content = removeFilterPatterns(message.content);
-              return message;
-            });
-          },
-        });
-
-        for await (const message of generator) {
-          yield message;
-        }
-      } catch (error) {
-        console.error('🚀 ~ .subscription ~ error:', error);
+      for await (const message of generator) {
+        yield message;
       }
     }),
 
