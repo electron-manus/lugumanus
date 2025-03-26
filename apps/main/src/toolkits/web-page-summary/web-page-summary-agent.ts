@@ -1,10 +1,9 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import { writeFileSync } from 'node:fs';
 import { BaseAgent } from '../../agent/base-agent.js';
 import type { AgentTaskRef } from '../../agent/type.js';
+import { getHtmlCode } from '../../javascript-code/get-html.js';
 import type { SpecializedToolAgent } from '../types.js';
 import { extractHtmlContent } from './extract-html-content.js';
-
 export class WebPageSummaryAgent extends BaseAgent implements SpecializedToolAgent {
   name = 'WebPageSummaryTool';
 
@@ -21,18 +20,24 @@ export class WebPageSummaryAgent extends BaseAgent implements SpecializedToolAge
   strict = true;
 
   async execute(query: Record<string, string>, taskRef: AgentTaskRef): Promise<unknown> {
-    const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3';
-
-    const response = await axios.get(query.url, {
-      headers: {
-        'User-Agent': userAgent,
+    await taskRef.studio.start(
+      {
+        type: 'openUrl',
+        payload: {
+          url: query.url,
+        },
+        description: query.url,
       },
-    });
+      taskRef.observer,
+      taskRef.abortSignal,
+    );
 
-    const $ = cheerio.load(response.data);
-    const content = $('body').text();
-
-    return extractHtmlContent(content);
+    const html = await taskRef.studio.browserUse.webContents.executeJavaScript(getHtmlCode);
+    try {
+      const summary = extractHtmlContent(html);
+      return summary;
+    } catch (error) {
+      throw new Error('Failed to extract html content');
+    }
   }
 }
