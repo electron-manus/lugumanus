@@ -1,46 +1,8 @@
-import * as path from 'node:path';
-import * as url from 'node:url';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-import { BrowserWindow, app, protocol } from 'electron';
+import { app, protocol } from 'electron';
 import { appRouter } from './app-router.js';
 import { createContext } from './trpc.js';
-
-let mainWindow: BrowserWindow | null = null;
-
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
-    frame: false,
-    show: true,
-    resizable: false,
-    fullscreenable: false,
-    titleBarStyle: 'hidden' as const,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:4200');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadURL(
-      url.format({
-        pathname: path.join(import.meta.dirname, '../renderer/index.html'),
-        protocol: 'file:',
-        slashes: true,
-      }),
-    );
-  }
-
-  // 当窗口关闭时触发
-  mainWindow.on('closed', () => {
-    // 取消引用窗口对象
-    mainWindow = null;
-  });
-}
+import { createMainWindow, getMainWindow } from './window.js';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -53,6 +15,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// 当 Electron 初始化完成后创建窗口
 app.whenReady().then(() => {
   app.commandLine.appendSwitch('disable-features', 'site-per-process');
   app.commandLine.appendSwitch('ignore-certificate-errors');
@@ -72,12 +35,19 @@ app.whenReady().then(() => {
     });
   });
 
-  createWindow();
+  createMainWindow();
+
   app.on('activate', () => {
-    if (mainWindow === null) createWindow();
+    // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
+    if (getMainWindow() === null) {
+      createMainWindow();
+    }
   });
 });
 
+// 当所有窗口关闭时退出应用（Windows & Linux）
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });

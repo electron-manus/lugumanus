@@ -22,7 +22,7 @@ async function compile() {
 
   try {
     await Bun.build({
-      entrypoints: [join(SRC_DIR, 'main.ts')],
+      entrypoints: [join(SRC_DIR, 'main.ts'), join(SRC_DIR, 'preload.ts')],
       outdir: DIST_DIR,
       target: 'node',
       external: [...Object.keys(pkg.dependencies), ...Object.keys(sharePkg.dependencies)],
