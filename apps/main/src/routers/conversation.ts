@@ -1,3 +1,4 @@
+import type { StudioActionType } from '@lugu-manus/share';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import conversationAgentManager from '../agent/conversation-agent-manager.js';
@@ -75,30 +76,63 @@ const conversationRouter = t.router({
       }),
     )
     .subscription(async function* ({ input, ctx }) {
-      const conversation = await ctx.prisma.conversation.findUnique({
-        where: { id: input.id },
-      });
-      if (!conversation) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Conversation not found',
+      try {
+        const conversation = await ctx.prisma.conversation.findUnique({
+          where: { id: input.id },
         });
-      }
-      const agentContext = await conversationAgentManager.getOrCreateAgentContext(conversation.id);
-      const observer = await agentContext.agent.start();
-      const generator = observableToGenerator(observer, {
-        bufferSize: 1,
-        processBuffer: (messages) => {
-          return messages.map((message) => {
-            message.content = removeFilterPatterns(message.content);
-            return message;
+        if (!conversation) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Conversation not found',
           });
+        }
+        const agentContext = await conversationAgentManager.getOrCreateAgentContext(
+          conversation.id,
+        );
+
+        const observer = await agentContext.agent.start();
+        const generator = observableToGenerator(observer, {
+          bufferSize: 1,
+          processBuffer: (messages) => {
+            return messages.map((message) => {
+              message.content = removeFilterPatterns(message.content);
+              return message;
+            });
+          },
+        });
+
+        for await (const message of generator) {
+          yield message;
+        }
+      } catch (error) {
+        console.error('🚀 ~ .subscription ~ error:', error);
+      }
+    }),
+
+  previewAction: t.procedure
+    .input(
+      z.object({
+        messageId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const message = await ctx.prisma.message.findUnique({
+        where: { id: input.messageId },
+        include: {
+          task: true,
         },
       });
-
-      for await (const message of generator) {
-        yield message;
+      if (!message) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Message not found' });
       }
+      const agentContext = await conversationAgentManager.getOrCreateAgentContext(
+        message.conversationId,
+      );
+      agentContext.agent.getStudio()?.preview({
+        type: message.task?.type as StudioActionType,
+        description: message.task?.description || '',
+        payload: JSON.parse(message.task?.payload || '{}'),
+      });
     }),
 });
 

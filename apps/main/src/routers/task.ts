@@ -1,4 +1,3 @@
-import { TaskType } from '@prisma/client';
 import { z } from 'zod';
 import { t } from '../trpc.js';
 
@@ -7,19 +6,17 @@ const taskRouter = t.router({
   createTask: t.procedure
     .input(
       z.object({
-        title: z.string(),
-        type: z.nativeEnum(TaskType),
-        attachment: z.string(),
-        previewHtmlUrl: z.string(),
+        description: z.string(),
+        type: z.string(),
+        payload: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       const task = await ctx.prisma.task.create({
         data: {
-          title: input.title,
+          description: input.description,
           type: input.type,
-          attachment: input.attachment,
-          previewHtmlUrl: input.previewHtmlUrl,
+          payload: input.payload,
         },
       });
       return task;

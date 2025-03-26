@@ -32,8 +32,6 @@ export class WebViewManager {
     if (!this.webview) return;
 
     const bounds = await mainWindow.webContents.executeJavaScript(getRectJavascript);
-    console.log('🚀 ~ WebViewManager ~ resetBounds ~ bounds:', bounds);
-    // this.webview.setBackgroundColor('#171717');
     this.webview.setBounds({
       x: bounds.x,
       y: bounds.y,

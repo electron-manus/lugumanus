@@ -73,20 +73,11 @@ enum MessageStatus {
 }
 
 model Task {
-  id             String   @id @default(uuid())
-  title          String
-  type           TaskType
-  previewHtmlUrl String
-  attachment     String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  message        Message?
-}
-
-enum TaskType {
-  OPEN_URL
-  SEARCH
-  SUMMARY_WEBPAGE
-  CREATE
-  EDITOR
+  id          String   @id @default(uuid())
+  description String
+  type        String
+  payload     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  message     Message?
 }

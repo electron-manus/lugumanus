@@ -1,7 +1,8 @@
 import type React from 'react';
 import { useState } from 'react';
-import ChatContainer from './ChatContainer';
 import Sidebar from './Sidebar';
+import { Studio } from './Studio';
+import { ChatContainer } from './chat/ChatContainer';
 
 const MainContent: React.FC = () => {
   const [currentConversationId, setCurrentConversationId] = useState<string>();
@@ -13,10 +14,8 @@ const MainContent: React.FC = () => {
           onConversationChange={setCurrentConversationId}
           conversationId={currentConversationId}
         />
-        {/* 聊天区域 */}
         <ChatContainer conversationId={currentConversationId} />
-        {/* 工作室 */}
-        {/* <StudioContainer /> */}
+        <Studio />
       </div>
     </div>
   );

@@ -71,8 +71,15 @@ export class ChatCompletion {
           this.content += content;
           this.contentSubject.next(this.content);
         }
+
+        // 检查是否有完成标志
+        if (chunk.choices[0]?.finish_reason) {
+          console.log('stream completed: ', chunk.choices[0].finish_reason);
+        }
       }
 
+      // 修复可能不完整的JSON参数
+      this._validateAndFixToolCalls();
       // 流处理完成
       this.completedSubject.next(true);
     } catch (error) {
@@ -84,6 +91,39 @@ export class ChatCompletion {
       this.completedSubject.complete();
       this.contentSubject.complete();
       this.toolCallsSubject.complete();
+    }
+  }
+
+  // 添加新方法验证和修复工具调用参数
+  private _validateAndFixToolCalls(): void {
+    for (const toolCall of this.toolCalls) {
+      if (toolCall.function?.arguments) {
+        try {
+          // 尝试解析JSON
+          JSON.parse(toolCall.function.arguments);
+        } catch (e) {
+          // JSON不完整，尝试修复
+          console.warn('detected incomplete JSON parameters:', toolCall.function.arguments);
+          // 可能缺少结束括号
+          if (!toolCall.function.arguments.endsWith('}')) {
+            toolCall.function.arguments += '}';
+            // 再次尝试解析
+            try {
+              JSON.parse(toolCall.function.arguments);
+              console.log('fixed JSON parameters:', toolCall.function.arguments);
+            } catch (e) {
+              // 如果还是不行，可能缺少多个括号
+              toolCall.function.arguments += '"}';
+              try {
+                JSON.parse(toolCall.function.arguments);
+                console.log('fixed complex JSON parameters:', toolCall.function.arguments);
+              } catch (e) {
+                console.error('failed to fix JSON parameters');
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -118,7 +158,14 @@ export class ChatCompletion {
   // 等待并获取所有工具调用
   async getFullToolCalls(): Promise<OpenAI.Chat.Completions.ChatCompletionMessageToolCall[]> {
     if (this.isStream && this.processingPromise) {
-      await lastValueFrom(this.completed);
+      try {
+        // 等待流处理完成
+        await this.processingPromise;
+        // 再次检查并修复工具调用
+        this._validateAndFixToolCalls();
+      } catch (error) {
+        console.error('error occurred while waiting for stream processing to complete:', error);
+      }
     }
     return this.toolCalls;
   }

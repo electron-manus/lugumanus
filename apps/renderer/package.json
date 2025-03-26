@@ -2,12 +2,14 @@
   "name": "@lugu-manus/renderer",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
     "@ant-design/x": "^1.0.5",
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@lugu-manus/share": "workspace:*",
     "@material-tailwind/react": "^2.1.9",
     "@tanstack/react-query": "^5.69.0",
     "@trpc/tanstack-react-query": "^11.0.0",
@@ -15,6 +17,8 @@
     "antd": "^5.24.3",
     "axios": "^1.8.3",
     "clsx": "^2.1.1",
-    "react-if": "^4.1.5"
+    "react-if": "^4.1.5",
+    "react-markdown": "^10.1.0",
+    "react-shadow-root": "^6.2.0"
   }
 }
