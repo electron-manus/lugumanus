@@ -1,0 +1,12 @@
+{
+  "name": "@lugu-manus/share",
+  "private": true,
+  "main": "./index.js",
+  "types": "./index.ts",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
