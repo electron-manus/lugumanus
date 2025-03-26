@@ -1,13 +1,9 @@
-import { WebContentsView } from 'electron';
-import { BrowserUse, ElectronInputSimulator } from 'electron-browser-use';
-import { loadSdkAndModel } from '../ai-sdk/index.js';
 import { ConversionActorAgent } from './conversion-actor-agent.js';
 
 // 定义会话代理的接口
 interface BrowserAgentContext {
   agent: ConversionActorAgent;
   abortController: AbortController;
-  webview: WebContentsView;
 }
 
 class ConversationAgentManager {
@@ -26,10 +22,8 @@ class ConversationAgentManager {
 
     // 清理资源
     agentContext.abortController.abort('agent context removed');
-    agentContext.webview.webContents.close();
-    agentContext.webview.removeAllListeners();
+    agentContext.agent.destroy();
     this.agentContexts.delete(conversationId);
-
     return true;
   }
 
@@ -44,33 +38,14 @@ class ConversationAgentManager {
       return agentContext;
     }
 
-    const models = await loadSdkAndModel();
     const abortController = new AbortController();
-    const webview = new WebContentsView({
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        allowRunningInsecureContent: true,
-      },
-    });
-
-    const browserUse = new BrowserUse({
-      browserSimulator: new ElectronInputSimulator(webview),
-      models: {
-        // @ts-ignore
-        text: models.TEXT,
-        // @ts-ignore
-        longText: models.LONG_TEXT,
-        // @ts-ignore
-        screenshot: models.IMAGE_TO_TEXT,
-      },
-    });
 
     const newAgentContext: BrowserAgentContext = {
-      agent: new ConversionActorAgent(conversationId, abortController.signal, browserUse),
+      agent: new ConversionActorAgent(conversationId, abortController.signal),
       abortController,
-      webview,
     };
+
+    await newAgentContext.agent.init();
 
     this.agentContexts.set(conversationId, newAgentContext);
     return newAgentContext;

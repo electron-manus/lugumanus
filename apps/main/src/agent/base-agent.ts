@@ -13,6 +13,7 @@ import type { AgentTaskRef } from './type.js';
 
 type Message = ChatCompletionMessageParam & {
   tool_calls?: ChatCompletionMessageToolCall[];
+  tool_call_id?: string;
 };
 
 export class BaseAgent {
@@ -47,8 +48,9 @@ export class BaseAgent {
     role: Message['role'],
     content: string,
     toolCalls?: ChatCompletionMessageToolCall[],
+    toolCallId?: string,
   ): void {
-    if (!content && !toolCalls?.length) {
+    if (!content && !toolCalls?.length && !toolCallId) {
       return; // 避免添加空消息
     }
 
@@ -56,6 +58,10 @@ export class BaseAgent {
 
     if (toolCalls?.length) {
       message.tool_calls = toolCalls;
+    }
+
+    if (role === 'tool' && toolCallId) {
+      message.tool_call_id = toolCallId;
     }
 
     this.messageHistory.push(message);
@@ -144,15 +150,18 @@ export class BaseAgent {
     toolCalls: ChatCompletionMessageToolCall[],
     tools: SpecializedToolAgent[],
   ): Promise<Array<{ toolCall: ChatCompletionMessageToolCall; result: unknown }> | null> {
+    console.log('🚀 ~ BaseAgent ~ toolCalls:', toolCalls);
     if (!toolCalls.length || !tools.length) {
       return null;
     }
 
     const results = [];
     this.addToHistory('assistant', '', toolCalls);
+
     for (const toolCall of toolCalls) {
       if (taskRef.abortSignal.aborted) {
-        break;
+        this.addToHistory('tool', 'User cancelled the operation', undefined, toolCall.id);
+        continue;
       }
 
       try {
@@ -161,7 +170,8 @@ export class BaseAgent {
 
         const tool = tools.find((t) => t.name === toolName);
         if (!tool) {
-          this.addToHistory('tool', `Tool not found: ${toolName}`);
+          console.error(`Tool not found: ${toolName}`);
+          this.addToHistory('tool', `Tool not found: ${toolName}`, undefined, toolCall.id);
           continue;
         }
 
@@ -172,9 +182,14 @@ export class BaseAgent {
               ? JSON.parse(toolArgs)
               : (toolArgs as Record<string, unknown>);
         } catch (e) {
+          console.error(
+            `Failed to parse tool arguments: ${toolName}, Error: ${(e as Error).message}, ${toolArgs}`,
+          );
           this.addToHistory(
             'tool',
-            `Failed to parse tool arguments: ${toolName}, Error: ${(e as Error).message}`,
+            `Failed to parse tool arguments: ${(e as Error).message}, ${toolArgs}`,
+            undefined,
+            toolCall.id,
           );
           continue;
         }
@@ -184,23 +199,34 @@ export class BaseAgent {
         if (process.env.NODE_ENV !== 'production') {
           console.log(
             `Tool ${toolName} execution result type: ${typeof result}`,
-            typeof result === 'object' ? `${JSON.stringify(result).substring(0, 100)}...` : result,
+            typeof result === 'object'
+              ? `${JSON.stringify(result).substring(0, 100)}...`
+              : typeof result === 'string'
+                ? result.substring(0, 100)
+                : result,
           );
         }
 
         if (result) {
           const content = typeof result === 'string' ? result : JSON.stringify(result);
-          this.addToHistory('tool', content);
+          this.addToHistory('tool', content, undefined, toolCall.id);
           results.push({ toolCall, result });
         } else {
-          this.addToHistory('tool', `Tool ${toolName} completed execution but returned no result`);
+          this.addToHistory(
+            'tool',
+            `Tool ${toolName} completed execution but returned no result`,
+            undefined,
+            toolCall.id,
+          );
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`Tool ${toolCall.function.name} execution failed: ${errorMessage}`);
         this.addToHistory(
           'tool',
-          `Tool execution failed: ${toolCall.function.name}, Error: ${errorMessage}`,
+          `Tool ${toolCall.function.name} execution failed: ${errorMessage}`,
+          undefined,
+          toolCall.id,
         );
       }
     }
@@ -245,6 +271,7 @@ export class BaseAgent {
           params,
           model,
         );
+
         const toolCalls = await lastValueFrom(chatCompletion.toolCallsStream);
         if (!toolCalls.length) {
           break;

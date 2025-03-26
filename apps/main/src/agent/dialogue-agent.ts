@@ -22,6 +22,14 @@ type Parameters = {
   context?: string;
 };
 
+const tools = [
+  ...searchToolkits,
+  ...webPageSummaryToolkits,
+  ...chartToolkits,
+  ...documentToolkits,
+  ...fileToolkits,
+];
+
 export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
   readonly name = 'dialogue assistant';
   readonly description = 'A dialogue assistant that can help you with your questions.';
@@ -49,13 +57,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
   private assistantAgent = new BaseAgent({
     temperature: 0,
-    tools: [
-      ...searchToolkits,
-      ...webPageSummaryToolkits,
-      ...chartToolkits,
-      ...documentToolkits,
-      ...fileToolkits,
-    ],
+    tools,
   });
 
   static readonly MAX_ITERATIONS = 30;
@@ -69,10 +71,15 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
   async execute(query: Parameters, taskRef: AgentTaskRef): Promise<string> {
     this.assistantAgent.initialSystemMessage(
-      assistantPrompt(query.question, query.expected_result, query.context),
+      assistantPrompt(query.question, query.expected_result),
     );
 
-    this.userAgent.initialSystemMessage(userPrompt(query.question));
+    this.userAgent.initialSystemMessage(
+      userPrompt(
+        query.question,
+        tools.map((tool) => `${tool.name}: ${tool.description}`),
+      ),
+    );
 
     if (taskRef.abortSignal.aborted) {
       return 'The task has been aborted.';
@@ -88,7 +95,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
         continue;
       }
       const [userAgentContent, assistantAgentContent] = discussionResult;
-      if (userAgentContent.includes('TASK_DONE')) {
+      if (userAgentContent.toUpperCase().includes('TASK_DONE')) {
         return assistantAgentContent;
       }
       initialMessage = assistantAgentContent;
@@ -126,7 +133,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
     let userAgentContent = await lastValueFrom(userAgentCompletion.contentStream);
 
-    if (userAgentContent.includes('TASK_DONE')) {
+    if (userAgentContent.toUpperCase().includes('TASK_DONE')) {
       userAgentContent += toFinalAnswerPrompt(query.question);
     } else {
       userAgentContent += addAuxiliaryInformationPrompt(query.question);
@@ -156,7 +163,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
     let assistantAgentContent = await lastValueFrom(assistantAgentCompletion.contentStream);
 
-    if (!userAgentContent.includes('TASK_DONE')) {
+    if (!userAgentContent.toUpperCase().includes('TASK_DONE')) {
       assistantAgentContent += toNextInstructionPrompt(userAgentContent);
     }
 

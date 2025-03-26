@@ -21,6 +21,7 @@ export class CoordinateRolePlayAgent {
     if (!abortSignal) {
       throw new Error('abortSignal is required');
     }
+
     this.roleAgent.initialSystemMessage(coordinatingUserPrompt(task));
     let message = startCoordinatingRunnerPrompt();
     let assistantCompletion: ChatCompletion | null = null;
@@ -32,7 +33,6 @@ export class CoordinateRolePlayAgent {
       }
 
       const messageModel = await taskRef.createMessage('Coordinate Agent');
-      taskRef.observer.next(messageModel);
       assistantCompletion.contentStream.subscribe({
         next: (value) => {
           messageModel.content = value;
@@ -40,18 +40,40 @@ export class CoordinateRolePlayAgent {
         },
         async complete() {
           await taskRef.completeMessage(messageModel);
-          taskRef.observer.complete();
+          taskRef.observer.next(messageModel);
         },
         error: (error) => {
           taskRef.completeMessage(messageModel, 'FAILED');
-          taskRef.observer.error(error);
+          taskRef.observer.next(messageModel);
+          console.log('error', error);
         },
       });
 
       message = await lastValueFrom(assistantCompletion.contentStream);
-      if (message.includes('TASK_DONE')) {
+      if (message.toUpperCase().includes('TASK_DONE')) {
         message += toFinalAnswerPrompt(task);
         assistantCompletion = await this.roleAgent.run(message, taskRef);
+        if (!assistantCompletion) {
+          break;
+        }
+        const messageModel = await taskRef.createMessage('Coordinate Agent');
+        taskRef.observer.next(messageModel);
+        assistantCompletion.contentStream.subscribe({
+          next: (value) => {
+            messageModel.content = value;
+            taskRef.observer.next(messageModel);
+          },
+          async complete() {
+            await taskRef.completeMessage(messageModel);
+            taskRef.observer.next(messageModel);
+          },
+          error: (error) => {
+            taskRef.completeMessage(messageModel, 'FAILED');
+            taskRef.observer.next(messageModel);
+            console.log('error', error);
+          },
+        });
+        await lastValueFrom(assistantCompletion.contentStream);
         break;
       }
 
