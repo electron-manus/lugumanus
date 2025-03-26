@@ -1,61 +1,45 @@
-// 百度搜索 agent
+import type { BasicAcceptedElems, Cheerio, CheerioAPI } from 'cheerio';
+import type { AnyNode } from 'domhandler';
 
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import * as yaml from 'js-yaml';
-import { BaseAgent } from '../../agent/base-agent.js';
-import type { AgentTaskRef } from '../../agent/type.js';
-import type { SpecializedToolAgent } from '../types.js';
+const name = 'Baidu';
+const host = 'www.baidu.com';
 
-export class BaiduSearchAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'BaiduSearchTool';
+export const BaiduSearchConfig = {
+  name,
+  description: `${name} search tool`,
+  url: `https://${host}/s`,
+  host,
+  referrer: `https://${host}/`,
+  params: (query: string, page: number) => ({
+    wd: query,
+    pn: page * 10,
+    ie: 'utf-8',
+    rn: 10,
+  }),
+  selector: '.result, .result-op',
+  titleSelector: 'h3',
+  linkSelector: 'a',
+  snippetSelector: (element: BasicAcceptedElems<AnyNode>, $: CheerioAPI) => {
+    const cAbstract = $(element).find('.c-abstract');
+    const cSpanLastCColorText = $(element).find('.c-span-last .c-color-text');
+    const contentRight = $(element).find('[class^="content-right"]');
+    const rightLink = $(element).find('[class^="right-link"]');
 
-  description = 'Baidu search tool';
-
-  parameters = {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: 'Search keywords' },
-    },
-    required: ['query'],
-  };
-
-  strict = true;
-
-  async execute(query: Record<string, unknown>, taskRef: AgentTaskRef): Promise<unknown> {
-    const results: { title: string; link: string; snippet: string }[] = [];
-    const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3';
-
-    for (let page = 0; page < 2; page++) {
-      const response = await axios.get('https://www.baidu.com/s', {
-        params: {
-          wd: query.query,
-          pn: page * 10, // 每页10个结果，pn参数控制从第几个结果开始
-        },
-        headers: {
-          'User-Agent': userAgent,
-        },
-      });
-
-      const $ = cheerio.load(response.data);
-      $('.result, .result-op').each((index, element) => {
-        const title = $(element).find('h3').text();
-        const link = $(element).find('a').attr('href');
-        const snippetNode =
-          $(element).find('.c-abstract') ||
-          $(element).find('.c-span-last .c-color-text') ||
-          $(element).find('[class^="content-right-"]');
-        const snippet = snippetNode.text();
-        if (!title || !link || !snippet) {
-          return;
-        }
-        results.push({ title, link, snippet });
-      });
+    let snippetNode: Cheerio<AnyNode>;
+    if (cAbstract.length) {
+      snippetNode = cAbstract;
+    } else if (cSpanLastCColorText.length) {
+      snippetNode = cSpanLastCColorText;
+    } else if (contentRight.length) {
+      snippetNode = contentRight;
+    } else if (rightLink.length) {
+      snippetNode = rightLink;
+    } else {
+      snippetNode = $('');
     }
 
-    // TODO: 使用 taskRef.browserUse 显示出搜索结果
-
-    return yaml.dump(results);
-  }
-}
+    return snippetNode.text();
+  },
+  pageCount: 2,
+  delay: true,
+};
