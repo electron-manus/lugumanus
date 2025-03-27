@@ -1,0 +1,44 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送带有 v 前缀的标签时触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+        
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+          
+      - name: Install dependencies
+        run: bun install
+        
+      - name: Build project
+        run: bun run build
+        
+      - name: Generate Changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.1.0
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/*.js
+            LICENSE 

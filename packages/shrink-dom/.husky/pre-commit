@@ -1,0 +1,5 @@
+bun test
+
+# 格式化并修复代码
+npx biome check --apply .
+npx biome format --write .

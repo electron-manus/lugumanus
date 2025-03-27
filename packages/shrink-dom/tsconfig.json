@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "es2015"],
+    "module": "ESNext",
+    "noUnusedLocals": true,
+    "rootDir": ".",
+    "strict": true,
+    "target": "ES2021",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": false,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*", "rolldown.config.ts"]
+}

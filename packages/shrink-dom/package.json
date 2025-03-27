@@ -1,0 +1,89 @@
+{
+  "version": "0.0.5",
+  "name": "@lugu-manus/shrink-dom",
+  "description": "适用于网页分析、内容提取、AI训练数据准备和网页爬虫等场景，帮助开发者更高效地处理和优化DOM结构。",
+  "author": {
+    "name": "Xin",
+    "email": "fex@0000o.net"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dom",
+    "dom-analysis",
+    "dom-optimization",
+    "dom-content-extraction",
+    "dom-analysis-tool",
+    "ai-training-data-preparation",
+    "web-scraping"
+  ],
+  "module": "dist/index.js",
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:electron-manus/shrink-dom.git"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
+  "dependencies": {
+    "jsdom": "^26.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "rolldown --config rolldown.config.ts",
+    "dev": "rolldown --config rolldown.config.ts --watch",
+    "test": "bun test",
+    "prepare": "husky",
+    "release": "standard-version",
+    "lint": "biome check .",
+    "lint:fix": "biome check --apply .",
+    "format": "biome format .",
+    "format:fix": "biome format --write .",
+    "semantic-release": "semantic-release"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/bun": "latest",
+    "@types/jsdom": "^21.1.7",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "openai": "^4.89.0",
+    "rolldown": "^1.0.0-beta.6",
+    "standard-version": "^9.5.0",
+    "semantic-release": "^21.0.0",
+    "@semantic-release/commit-analyzer": "^10.0.0",
+    "@semantic-release/release-notes-generator": "^11.0.0",
+    "@semantic-release/npm": "^10.0.0",
+    "@semantic-release/github": "^9.0.0",
+    "@semantic-release/git": "^10.0.0",
+    "@semantic-release/changelog": "^6.0.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "node -e \"if(require('fs').readFileSync(process.argv[1]).toString().includes('console.log')) { console.error('错误: 文件中包含 console.log, 禁止提交!'); process.exit(1); }\""
+    ]
+  }
+}
