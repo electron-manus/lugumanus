@@ -1,9 +1,10 @@
 import {
   faBoxArchive,
   faFile,
-  faFileText,
   faFolder,
+  faImage,
   faLink,
+  faMarker,
   faMousePointer,
   faPerson,
   faSearch,
@@ -20,9 +21,11 @@ export function getActionIcon(action?: StudioActionType) {
       return faLink;
     case 'executeBrowserAction':
       return faMousePointer;
-    case 'showText':
-      return faFileText;
-    case 'showSearchResults':
+    case 'editor':
+      return faMarker;
+    case 'image':
+      return faImage;
+    case 'searchResults':
       return faSearch;
     case 'collect':
       return faBoxArchive;
@@ -41,9 +44,11 @@ export function getActionName(action?: StudioActionType) {
       return '打开链接';
     case 'executeBrowserAction':
       return '执行浏览器操作';
-    case 'showText':
-      return '打开文本';
-    case 'showSearchResults':
+    case 'editor':
+      return '编辑';
+    case 'image':
+      return '图片';
+    case 'searchResults':
       return '搜索';
     case 'collect':
       return '收集';
