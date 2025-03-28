@@ -7,12 +7,12 @@ import type { ParsedResponse } from '../types/browser-use.types';
 export function parseAiResponse(response: string, isScreenshot: boolean): ParsedResponse {
   const thoughtMatch = response.match(/<Thought>(.*?)<\/Thought>/s);
   const actionMatch = response.match(/<Action>(.*?)<\/Action>/s);
-  const summaryMatch = response.match(/<PageSummary>(.*?)<\/PageSummary>/s);
+  const informationMatch = response.match(/<Information>(.*?)<\/Information>/s);
   const errorMatch = response.match(/<Error>(.*?)<\/Error>/s);
 
   if (!thoughtMatch) {
     return {
-      error: `Invalid response: Thought not found in the model response. ${response}`,
+      error: `Invalid response: Instruction not found in the model response. ${response}`,
     };
   }
 
@@ -22,9 +22,9 @@ export function parseAiResponse(response: string, isScreenshot: boolean): Parsed
     };
   }
 
-  const thought = thoughtMatch[1];
+  const instruction = thoughtMatch[1];
   const actionString = actionMatch[1];
-  const summary = summaryMatch ? summaryMatch[1] : '';
+  const information = informationMatch ? informationMatch[1] : '';
   const error = errorMatch ? errorMatch[1] : undefined;
 
   const actionPattern = /(\w+)\((.*?)\)/;
@@ -114,8 +114,8 @@ export function parseAiResponse(response: string, isScreenshot: boolean): Parsed
   }
 
   return {
-    summary,
-    thought,
+    information: information,
+    instruction,
     action: actionString,
     parsedAction,
   };

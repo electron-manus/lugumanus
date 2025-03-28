@@ -99,6 +99,7 @@ function createMockBrowserSimulator(): ElectronInputSimulator {
         toJPEG: () => Buffer.from('test-image'),
       })),
     },
+    getTitle: mock(() => Promise.resolve('测试网页')),
     scrollDown: mock(() => Promise.resolve()),
     scrollUp: mock(() => Promise.resolve()),
     simulateMouseClickSequence: mock(() => Promise.resolve()),
@@ -128,6 +129,7 @@ describe('BrowserUse', () => {
       actionCallback: actionCallbackMock,
       abortSignal: abortController.signal,
     });
+    console.log('🚀 ~ test ~ result:', result);
 
     expect(result.status).toBe('completed');
     expect(mockBrowserSimulator.webContents.loadURL).toHaveBeenCalledWith('https://example1.com');

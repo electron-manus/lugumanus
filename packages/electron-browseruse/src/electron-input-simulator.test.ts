@@ -50,7 +50,7 @@ describe('Electron 输入模拟器', () => {
       expect(sendCommandSpy).toHaveBeenCalledWith('Main.mouseAnimationCommand', '100', '200');
 
       // 验证鼠标事件序列
-      expect(sendEventSpy).toHaveBeenCalledTimes(4);
+      expect(sendEventSpy).toHaveBeenCalledTimes(3);
       expect(sendEventSpy).toHaveBeenNthCalledWith(1, {
         type: 'mouseEnter',
         x: 100,

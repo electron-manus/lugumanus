@@ -10,11 +10,7 @@
     "email": "fex@0000o.net"
   },
   "license": "MIT",
-  "keywords": [
-    "electron",
-    "browser use",
-    "automation browser"
-  ],
+  "keywords": ["electron", "browser use", "automation browser"],
   "repository": {
     "type": "git",
     "url": "git@github.com:electron-manus/electron-browser-use.git"
@@ -26,14 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "CHANGELOG.md",
-    "README.md",
-    "LICENSE",
-    "docs"
-  ],
+  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE", "docs"],
   "devDependencies": {
+    "@types/lodash": "^4.17.11",
     "@types/jsdom": "^21.1.7",
     "@types/pinyin": "^2.10.2",
     "@types/bun": "latest",
@@ -74,7 +65,20 @@
     "keyboardevent-from-electron-accelerator": "^2.0.0",
     "pinyin": "^4.0.0-alpha.2",
     "radash": "^12.1.0",
-    "shrink-dom": "^0.0.5"
+    "@lugu-manus/shrink-dom": "workspace:*"
+  },
+  "nx": {
+    "$schema": "../../node_modules/nx/schemas/nx-schema.json",
+    "target": {
+      "build": {
+        "executor": "@nx:run-commands",
+        "defaultConfiguration": "production",
+        "options": {
+          "cwd": "packages/electron-browseruse",
+          "commands": ["rolldown --config rolldown.config.ts"]
+        }
+      }
+    }
   },
   "scripts": {
     "build": "rolldown --config rolldown.config.ts",

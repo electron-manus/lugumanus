@@ -180,7 +180,6 @@ export class ElectronInputSimulator {
         { type: 'mouseEnter', x: position.x, y: position.y, button: 'left' },
         { type: 'mouseDown', x: position.x, y: position.y, button: 'left', clickCount },
         { type: 'mouseUp', x: position.x, y: position.y, button: 'left' },
-        { type: 'mouseLeave', x: position.x, y: position.y, button: 'left' },
       ];
 
       // 按顺序发送鼠标事件
@@ -236,11 +235,13 @@ export class ElectronInputSimulator {
         const objectId = await this.sendCommandToWebContents(
           this.commands.getActiveElementObjectIdCommand,
         );
+
         await this.sendCommandToWebContents(
           this.commands.setEditableValueCommand,
           currentText,
           objectId,
         );
+
         await sleep(ElectronInputSimulator.INPUT_DELAYS.CHINESE.CHAR);
       }
 
@@ -351,15 +352,15 @@ export class ElectronInputSimulator {
    */
   async scrollDown(): Promise<void> {
     try {
-      const windowHeight = await this.getWindowHeight();
-      const scrollDistance = Math.floor(windowHeight / 3);
+      const dimensions = await this.getWindowDimensions();
+      const scrollDistance = Math.floor(dimensions.height / 3);
 
       await this.sendEventToWebContents({
         type: 'mouseWheel',
-        x: 100,
-        y: 100,
+        x: Math.floor(dimensions.width / 2),
+        y: Math.floor(dimensions.height / 2),
         deltaX: 0,
-        deltaY: -(windowHeight - scrollDistance),
+        deltaY: -(dimensions.height - scrollDistance),
         canScroll: true,
       });
     } catch (error) {
@@ -372,13 +373,13 @@ export class ElectronInputSimulator {
    */
   async scrollUp(): Promise<void> {
     try {
-      const windowHeight = await this.getWindowHeight();
-      const scrollDistance = Math.floor(windowHeight / 3);
+      const dimensions = await this.getWindowDimensions();
+      const scrollDistance = Math.floor(dimensions.height / 3);
 
       await this.sendEventToWebContents({
         type: 'mouseWheel',
-        x: 100,
-        y: 100,
+        x: Math.floor(dimensions.width / 2),
+        y: Math.floor(dimensions.height / 2),
         deltaX: 0,
         deltaY: scrollDistance,
         canScroll: true,
@@ -389,17 +390,37 @@ export class ElectronInputSimulator {
   }
 
   /**
+   * 获取窗口尺寸
+   */
+  private async getWindowDimensions(): Promise<{ width: number; height: number }> {
+    this.validateWebContents();
+
+    try {
+      const dimensions = await this.targetWebContents.webContents.executeJavaScript(
+        '({width: window.innerWidth, height: window.innerHeight})',
+      );
+
+      if (
+        typeof dimensions.width !== 'number' ||
+        dimensions.width <= 0 ||
+        typeof dimensions.height !== 'number' ||
+        dimensions.height <= 0
+      ) {
+        throw new Error('Invalid window dimensions');
+      }
+
+      return dimensions;
+    } catch (error) {
+      throw new Error(`Failed to get window dimensions: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * 获取窗口高度
    */
   private async getWindowHeight(): Promise<number> {
-    const height = (await this.sendCommandToWebContents(
-      this.commands.getWindowHeightCommand,
-    )) as number;
-    if (typeof height !== 'number' || height <= 0) {
-      throw new Error('Failed to get window height');
-    }
-
-    return height;
+    const dimensions = await this.getWindowDimensions();
+    return dimensions.height;
   }
 
   /**

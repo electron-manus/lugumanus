@@ -1,4 +1,4 @@
-import type { ChatCompletion } from 'openai/resources';
+import type { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources';
 
 import { formatPrompt, formatPromptForScreenshot, systemMessage } from './prompt';
 import { detectRepeatedActions } from './utils/action-detector';
@@ -6,6 +6,8 @@ import { parseAiResponse } from './utils/response-parser';
 
 import shrinkHtml from './shrink-html';
 
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { sleep } from 'radash';
 import { ElectronInputSimulator } from './electron-input-simulator';
 import type {
@@ -25,6 +27,7 @@ interface TaskState {
   history: TaskHistoryEntry[];
   errorHistory: TaskHistoryEntry[];
   restartCount: number;
+  contentBlockerRetryCount: number; // 添加内容阻塞重试计数
   instruction: string;
   forceUseScreenshot: boolean;
   runOption: RunOption;
@@ -39,6 +42,7 @@ export class BrowserUse {
   private readonly MAX_RESTART_COUNT = 1;
   private readonly MAX_RETRY_COUNT = 5;
   private readonly MAX_ERROR_HISTORY_SIZE = 10; // 新增错误历史大小
+  private readonly MAX_CONTENT_BLOCKER_RETRIES = 3; // 添加内容阻塞最大重试次数
 
   // 超时设置
   private readonly PAGE_LOAD_TIMEOUT = 5000;
@@ -47,17 +51,17 @@ export class BrowserUse {
   private readonly LOADING_CHECK_INTERVAL = 500; // 页面加载检查间隔
 
   // API参数
-  private readonly DEFAULT_MAX_TOKENS = 3000;
+  private readonly DEFAULT_MAX_TOKENS = 5000;
   private readonly DEFAULT_TEMPERATURE = 0;
   private readonly MAX_AI_COMPLETION_RETRIES = 3;
 
   // 判断文本长度阈值
-  private readonly HTML_SIZE_SMALL = 25000;
-  private readonly HTML_SIZE_MEDIUM = 100000;
+  private readonly HTML_SIZE = 38000;
 
   // 配置信息
   private models: BrowserUseOptions['models'];
   private browserSimulator: ElectronInputSimulator;
+  private debug: boolean; // 添加调试模式标志
 
   // 更新 taskInfo 类型以使用taskId作为键
   private taskInfo: TaskState | undefined;
@@ -70,6 +74,18 @@ export class BrowserUse {
     this.browserSimulator =
       // biome-ignore lint/style/noNonNullAssertion: targetWebContents or browserSimulator is required
       options.browserSimulator ?? new ElectronInputSimulator(options.targetWebContents!);
+    this.debug = options.debug ?? false; // 初始化调试模式
+    this.logDebug(`BrowserUse initialized with debug mode: ${this.debug}`);
+  }
+
+  // 调试日志方法
+  private logDebug(message: string, ...data: unknown[]): void {
+    if (!this.debug) return;
+
+    console.log(`[🐞] ${message}`);
+    if (data !== undefined) {
+      console.log(...data);
+    }
   }
 
   // 获取当前任务的状态
@@ -106,21 +122,28 @@ export class BrowserUse {
   }
 
   public async run(options: RunOption): Promise<BrowserUseResult> {
+    this.logDebug('Starting run with options:', options);
     const initResult = this.initializeTask(options);
     if (initResult.error) {
+      this.logDebug('Task initialization failed:', initResult.error);
       return initResult.error;
     }
 
     await this.loadWebPage(options.webUrl);
+    this.logDebug(`Web page loaded: ${options.webUrl}`);
     let retryCount = 0;
     let nextQuery: NextAction | null = null;
 
     while (true) {
       // 检查中断和重试条件
       if (this.shouldBreakExecution(options.abortSignal, retryCount)) {
+        this.logDebug(
+          `Breaking execution: aborted=${options.abortSignal?.aborted}, retryCount=${retryCount}`,
+        );
         break;
       }
       retryCount++;
+      this.logDebug(`Starting iteration #${retryCount}`);
 
       // 确定下一步操作
       nextQuery = await this.determineNextAction(options.webTitle, options.abortSignal);
@@ -140,20 +163,29 @@ export class BrowserUse {
       }
 
       // 处理特殊动作
-      const specialActionResult = await this.handleSpecialActions(
-        action,
-
-        options.actionCallback,
-      );
+      const specialActionResult = await this.handleSpecialActions(action, options.actionCallback);
       if (specialActionResult.shouldBreak) {
+        // 在返回结果前记录最终动作到历史记录
+        if (action && !('error' in action)) {
+          this.recordActionHistory(nextQuery);
+        }
+
         if (specialActionResult.result) {
-          return specialActionResult.result;
+          return {
+            status: 'completed',
+            error: specialActionResult.result.error,
+            history: this.getTaskState()?.history ?? [],
+          };
         }
         break;
       }
 
       if (specialActionResult.shouldContinue) {
         continue;
+      }
+
+      if (this.taskInfo) {
+        this.taskInfo.contentBlockerRetryCount = 0;
       }
 
       // 记录当前URL，用于判断执行后页面是否发生了跳转
@@ -201,9 +233,11 @@ export class BrowserUse {
 
   // 初始化任务
   private initializeTask(options: RunOption): { error?: BrowserUseResult } {
+    this.logDebug(`Initializing task with instruction: ${options.instruction}`);
     const existingTask = this.getTaskState();
 
     if (existingTask && existingTask.status === 'running') {
+      this.logDebug('Task initialization failed: Another task is already running');
       return {
         error: {
           status: 'failed',
@@ -239,6 +273,7 @@ export class BrowserUse {
       history: [],
       errorHistory: [],
       restartCount: restartCount,
+      contentBlockerRetryCount: 0, // 初始化内容阻塞重试计数
       instruction: options.instruction,
       forceUseScreenshot: options.useScreenshot ?? false,
       runOption: options,
@@ -252,6 +287,7 @@ export class BrowserUse {
   // 检查是否应该中断执行
   private shouldBreakExecution(abortSignal?: AbortSignal, retryCount?: number): boolean {
     if (abortSignal?.aborted) {
+      this.logDebug('Execution aborted by signal');
       this.updateTaskState({
         status: 'failed',
         error: 'Task aborted',
@@ -289,19 +325,30 @@ export class BrowserUse {
   // 处理特殊动作
   private async handleSpecialActions(
     action: ParsedResponseSuccess,
-
     actionCallback?: (action: string) => void,
   ): Promise<{ shouldBreak?: boolean; shouldContinue?: boolean; result?: BrowserUseResult }> {
+    this.logDebug(`Handling special action: ${action.parsedAction.name}`);
+
     if (
       action === null ||
       action.parsedAction.name === 'finish' ||
       action.parsedAction.name === 'fail'
     ) {
-      return { shouldBreak: true };
+      this.logDebug('Action is null or finish/fail, breaking execution');
+      return {
+        shouldBreak: true,
+      };
     }
 
     if (action.parsedAction.name === 'restart') {
       return this.handleRestartAction(action, actionCallback);
+    }
+
+    if (action.parsedAction.name === 'loadPage') {
+      await this.loadWebPage(action.parsedAction.args.url as string);
+      return {
+        shouldContinue: true,
+      };
     }
 
     if (action.parsedAction.name === 'identifyBlocker') {
@@ -329,14 +376,14 @@ export class BrowserUse {
     if (taskState.restartCount > this.MAX_RESTART_COUNT) {
       this.updateTaskState({
         status: 'failed',
-        error: `Retry count exceeded, task terminated. Original task: ${taskState.instruction}, Retry reason: ${action.thought}`,
+        error: `Retry count exceeded, task terminated. Original task: ${taskState.instruction}, Retry reason: ${action.instruction}`,
       });
       actionCallback?.('Retry count exceeded, task terminated');
       return {
         shouldBreak: true,
         result: {
           status: 'failed',
-          error: `Retry count exceeded, task terminated. Original task: ${taskState.instruction}, Retry reason: ${action.thought}`,
+          error: `Retry count exceeded, task terminated. Original task: ${taskState.instruction}, Retry reason: ${action.instruction}`,
           history: taskState.history,
         },
       };
@@ -344,9 +391,9 @@ export class BrowserUse {
 
     this.updateTaskState({
       status: 'idle',
-      error: `${action.thought}, Restarting task ${taskState.instruction}`,
+      error: `${action.instruction}, Restarting task ${taskState.instruction}`,
     });
-    actionCallback?.(`${action.thought}, Restarting task ${taskState.instruction}`);
+    actionCallback?.(`${action.instruction}, Restarting task ${taskState.instruction}`);
 
     return {
       shouldBreak: true,
@@ -357,7 +404,6 @@ export class BrowserUse {
   // 处理阻塞动作
   private async handleBlockerAction(
     action: ParsedResponseSuccess,
-
     actionCallback?: (action: string) => void,
   ): Promise<{ shouldBreak?: boolean; shouldContinue?: boolean; result?: BrowserUseResult }> {
     const taskState = this.getTaskState();
@@ -368,16 +414,33 @@ export class BrowserUse {
       };
     }
 
-    actionCallback?.(action.thought);
+    actionCallback?.(action.instruction);
 
-    if (
-      action.parsedAction.args.blockerType === 'content_loading' ||
-      action.parsedAction.args.blockerType === 'content_not_found'
-    ) {
+    if (action.parsedAction.args.blockerType === 'content_loading') {
+      // 增加内容阻塞重试计数
+      taskState.contentBlockerRetryCount++;
+
+      // 检查是否超过最大重试次数
+      if (taskState.contentBlockerRetryCount > this.MAX_CONTENT_BLOCKER_RETRIES) {
+        this.updateTaskState({
+          status: 'failed',
+          error: `content blocker retry count exceeded, task terminated. original task: ${taskState.instruction}, retry count: ${taskState.contentBlockerRetryCount - 1}`,
+        });
+
+        return {
+          shouldBreak: true,
+          result: {
+            status: 'failed',
+            error: `content blocker retry count exceeded, task terminated. original task: ${taskState.instruction}, retry count: ${this.MAX_CONTENT_BLOCKER_RETRIES}`,
+            history: taskState.history,
+          },
+        };
+      }
+
       // 使用截图识别重试
       this.updateTaskState({
         forceUseScreenshot: true,
-        error: 'Received, you manually clicked continue, I will continue execution',
+        error: `content blocker retry count exceeded, task terminated. original task: ${taskState.instruction}, retry count: ${taskState.contentBlockerRetryCount}`,
       });
       return { shouldContinue: true };
     }
@@ -391,18 +454,16 @@ export class BrowserUse {
       return { shouldContinue: true };
     }
 
-    console.log('action', action);
-
     this.updateTaskState({
       status: 'failed',
-      error: `${action.thought}, Execution failed, browser automated task ended, task: ${taskState.instruction}, webpage: ${taskState.runOption.webUrl}, try other methods to complete this task`,
+      error: `${action.instruction}, Execution failed, browser automated task ended, task: ${taskState.instruction}, webpage: ${taskState.runOption.webUrl}, try other methods to complete this task`,
     });
 
     return {
       shouldBreak: true,
       result: {
         status: 'failed',
-        error: `${action.thought}, Requires manual user handling, browser automated task ended, task: ${taskState.instruction}, webpage: ${taskState.runOption.webUrl}, try other methods to complete this task`,
+        error: `${action.instruction}, Requires manual user handling, browser automated task ended, task: ${taskState.instruction}, webpage: ${taskState.runOption.webUrl}, try other methods to complete this task`,
         history: taskState.history,
       },
     };
@@ -416,7 +477,7 @@ export class BrowserUse {
     const operation = await Promise.race([
       this.browserSimulator.sendCommandToWebContents(
         ElectronInputSimulator.DEFAULT_BROWSER_COMMANDS.showOperation,
-        action.thought,
+        action.instruction,
         'Continue',
         'Cancel',
       ),
@@ -444,13 +505,14 @@ export class BrowserUse {
     action: ParsedResponseSuccess,
     actionCallback?: (action: string) => void,
   ): Promise<{ error?: string }> {
+    this.logDebug(`Executing action: ${action.parsedAction.name}`, action.parsedAction.args);
     const taskState = this.getTaskState();
     if (!taskState) {
       return { error: 'Task state does not exist' };
     }
 
     try {
-      actionCallback?.(action.thought);
+      actionCallback?.(action.instruction);
 
       // 更新最后操作时间
       this.updateTaskState({
@@ -484,7 +546,7 @@ export class BrowserUse {
       }
 
       if (Number.isNaN(Number(x)) || Number.isNaN(Number(y))) {
-        return { error: 'Cannot identify element coordinates' };
+        return { error: `Cannot identify element coordinates ${elementId} ${x} ${y}` };
       }
 
       const pointCoordinates = {
@@ -509,8 +571,10 @@ export class BrowserUse {
           return { error: `Unsupported operation: ${name}` };
       }
 
+      this.logDebug(`Action executed successfully: ${name}`);
       return {};
     } catch (error) {
+      this.logDebug(`Action execution failed: ${(error as Error).message}`);
       return { error: (error as Error).message };
     }
   }
@@ -528,7 +592,7 @@ export class BrowserUse {
     taskState.history.push({
       prompt: nextQuery.prompt,
       action: nextQuery.action,
-      summary: nextQuery.action.summary,
+      information: nextQuery.action.information,
       usage: nextQuery.usage,
       isScreenshot: nextQuery.isScreenshot,
     });
@@ -536,6 +600,7 @@ export class BrowserUse {
 
   // 等待页面加载
   private async waitForPageLoad(previousUrl: string) {
+    this.logDebug(`Waiting for page load, previous URL: ${previousUrl}`);
     const taskState = this.getTaskState();
     if (!taskState) {
       return;
@@ -544,11 +609,15 @@ export class BrowserUse {
     await sleep(this.ACTION_DELAY);
 
     const currentUrl = this.browserSimulator.webContents.getURL();
+    this.logDebug(`Current URL: ${currentUrl}, URL changed: ${currentUrl !== previousUrl}`);
+
     if (currentUrl !== previousUrl) {
+      this.logDebug('URL changed, waiting for page to finish loading');
       await Promise.race([
         new Promise((resolve) => {
           const checkLoading = async () => {
-            const isLoading = await this.browserSimulator.webContents.isLoading();
+            const isLoading = this.browserSimulator.webContents.isLoading();
+            this.logDebug(`Page loading status: ${isLoading}`);
             if (!isLoading) {
               resolve(true);
             } else {
@@ -557,9 +626,12 @@ export class BrowserUse {
           };
           checkLoading();
         }),
-        sleep(this.PAGE_LOAD_TIMEOUT),
+        sleep(this.PAGE_LOAD_TIMEOUT).then(() => {
+          this.logDebug('Page load timeout reached');
+        }),
       ]);
     }
+    this.logDebug('Finished waiting for page load');
   }
 
   // 完成任务并生成总结
@@ -593,13 +665,16 @@ export class BrowserUse {
     webTitle: string,
     abortSignal?: AbortSignal,
   ): Promise<NextAction | null> {
+    this.logDebug(`Determining next action for page title: ${webTitle}`);
     const taskState = this.getTaskState();
     if (!taskState) {
       return null;
     }
 
     for (let i = 0; i < 3; i++) {
+      this.logDebug(`Attempt ${i + 1} to determine next action`);
       if (abortSignal?.aborted) {
+        this.logDebug('Task aborted while determining next action');
         this.updateTaskState({
           status: 'failed',
           error: 'Task aborted',
@@ -617,15 +692,8 @@ export class BrowserUse {
 
       try {
         const result = await this.requestAICompletion(
-          // DOM 结果
           domResult,
-          // 截图结果
           webContent.screenshotDataUrl,
-          // 网页URL
-
-          // 网页标题
-          webTitle,
-          // 中断信号
           abortSignal,
         );
 
@@ -653,6 +721,7 @@ export class BrowserUse {
 
   // 获取网页内容
   private async getWebContent() {
+    this.logDebug('Getting web content');
     const taskState = this.getTaskState();
     if (!taskState) {
       return null;
@@ -668,18 +737,50 @@ export class BrowserUse {
       return null;
     }
 
-    const screenshot = await this.browserSimulator.webContents.capturePage();
+    // 添加截图重试逻辑
+    let screenshot = null;
+    let screenshotError = '';
+    const MAX_SCREENSHOT_RETRIES = 3;
+
+    for (let retryCount = 0; retryCount < MAX_SCREENSHOT_RETRIES; retryCount++) {
+      try {
+        screenshot = await this.browserSimulator.webContents.capturePage();
+        if (screenshot) break;
+
+        screenshotError = 'screenshot is null';
+        this.logDebug(
+          `retry ${retryCount + 1}/${MAX_SCREENSHOT_RETRIES} failed: screenshot is null`,
+        );
+      } catch (error) {
+        screenshotError = (error as Error).message;
+        this.logDebug(
+          `retry ${retryCount + 1}/${MAX_SCREENSHOT_RETRIES} failed: ${screenshotError}`,
+        );
+      }
+
+      // 最后一次尝试失败后不需要等待
+      if (retryCount < MAX_SCREENSHOT_RETRIES - 1) {
+        await sleep(1000); // 重试前等待1秒
+      }
+    }
+
     if (!screenshot) {
       this.updateTaskState({
         status: 'failed',
-        error: 'Failed to get webpage screenshot',
+        error: `Failed to get webpage screenshot after ${MAX_SCREENSHOT_RETRIES} attempts: ${screenshotError}`,
       });
       return null;
     }
 
     const screenshotBuffer = screenshot.toJPEG(50);
+
+    if (this.debug) {
+      writeFileSync(path.join(process.cwd(), 'browser-use-screenshot.jpg'), screenshotBuffer);
+    }
+
     const screenshotDataUrl = `data:image/jpeg;base64,${screenshotBuffer.toString('base64')}`;
 
+    this.logDebug('Successfully captured webpage content and screenshot');
     return { annotatedHTML, screenshotDataUrl };
   }
 
@@ -717,7 +818,7 @@ export class BrowserUse {
       .filter(Boolean) as ParsedResponseSuccess[];
     const html = domResult.shrunkenHtml;
 
-    const prompt = formatPrompt(taskState.instruction, previousActions, html);
+    const prompt = formatPrompt(taskState.instruction, previousActions);
     const promptForScreenshot = formatPromptForScreenshot(
       taskState.instruction,
       previousActions,
@@ -731,7 +832,11 @@ export class BrowserUse {
     let shouldUseScreenshot =
       !domResult.isValidDom || !html
         ? true
-        : taskState.forceUseScreenshot || html.length > this.HTML_SIZE_MEDIUM;
+        : taskState.forceUseScreenshot || html.length > this.HTML_SIZE;
+
+    if (this.debug) {
+      writeFileSync(path.join(process.cwd(), 'browser-use-capture.html'), html);
+    }
 
     if (isStuckInLoop) {
       const recentEntries = taskState.history.slice(-2);
@@ -748,22 +853,27 @@ export class BrowserUse {
       }
     }
 
+    if (this.debug) {
+      this.logDebug(`
+domResult.isValidDom: ${domResult.isValidDom}
+domResult.shrunkenHtml: ${domResult.shrunkenHtml.length}
+shouldUseScreenshot: ${shouldUseScreenshot}
+`);
+    }
+
     // 选择合适的模型
     const modelInfo = shouldUseScreenshot
       ? this.models.screenshot
-      : html.length < this.HTML_SIZE_SMALL
+      : html.length < this.HTML_SIZE
         ? this.models.text
-        : html.length <= this.HTML_SIZE_MEDIUM
-          ? this.models.longText
-          : this.models.screenshot;
+        : this.models.screenshot;
 
-    return { html, prompt, promptForScreenshot, shouldUseScreenshot, modelInfo };
+    return { html, prompt, promptForScreenshot, shouldUseScreenshot, modelInfo, pageContent: html };
   }
 
   private async requestAICompletion(
     domResult: { isValidDom: boolean; shrunkenHtml: string },
     screenshotDataUrl: string,
-    webTitle: string,
     abortSignal?: AbortSignal,
   ): Promise<NextAction | null> {
     const promptAndMode = this.preparePromptsAndDetermineMode(domResult);
@@ -771,40 +881,61 @@ export class BrowserUse {
       return null;
     }
 
-    const { prompt, promptForScreenshot, shouldUseScreenshot, modelInfo } = promptAndMode;
+    const { prompt, promptForScreenshot, shouldUseScreenshot, modelInfo, pageContent } =
+      promptAndMode;
+    this.logDebug(
+      `[🐱] Using ${shouldUseScreenshot ? 'screenshot' : 'DOM'} mode with model: ${modelInfo.model}, pageContent: ${pageContent.length}`,
+    );
 
     // 添加重试逻辑
     for (let attempt = 1; attempt <= this.MAX_AI_COMPLETION_RETRIES; attempt++) {
+      this.logDebug(`AI completion attempt ${attempt}/${this.MAX_AI_COMPLETION_RETRIES}`);
       try {
-        const completion: ChatCompletion | null = await modelInfo.sdk.chat.completions.create(
+        const messages: ChatCompletionMessageParam[] = [
           {
-            messages: [
+            role: 'system',
+            content: systemMessage(
+              shouldUseScreenshot,
+              this.browserSimulator.webContents.getURL(),
+              this.browserSimulator.webContents.getTitle(),
+            ),
+          },
+        ];
+
+        if (shouldUseScreenshot) {
+          messages.push({
+            role: 'user',
+            content: [
               {
-                role: 'system',
-                content: systemMessage(shouldUseScreenshot, webTitle),
+                type: 'text',
+                text: promptForScreenshot,
               },
               {
-                role: 'user',
-                content: shouldUseScreenshot
-                  ? [
-                      {
-                        type: 'text',
-                        text: promptForScreenshot,
-                      },
-                      {
-                        type: 'image_url',
-                        image_url: {
-                          url: screenshotDataUrl,
-                        },
-                      },
-                    ]
-                  : prompt,
+                type: 'image_url',
+                image_url: {
+                  url: screenshotDataUrl,
+                },
               },
             ],
+          });
+        } else {
+          messages.push({
+            role: 'user',
+            content: `${prompt}
+
+<CurrentPageStructure>
+${pageContent}
+</CurrentPageStructure>
+            `,
+          });
+        }
+
+        const completion: ChatCompletion | null = await modelInfo.sdk.chat.completions.create(
+          {
+            messages: messages,
             model: modelInfo.model,
             temperature: this.DEFAULT_TEMPERATURE,
-            max_tokens: this.DEFAULT_MAX_TOKENS,
-            n: 3,
+            max_completion_tokens: this.DEFAULT_MAX_TOKENS,
           },
           { signal: abortSignal },
         );
@@ -816,6 +947,19 @@ export class BrowserUse {
         const action = parseAiResponse(response ?? '', shouldUseScreenshot);
         const usage = completion.usage;
 
+        if (this.debug) {
+          writeFileSync(
+            path.join(process.cwd(), 'browser-use-response.txt'),
+            `response: ${response}\n\nprompt: ${JSON.stringify(messages)}\n`,
+          );
+        }
+
+        this.logDebug('🐼 Action', action);
+
+        if (action.error) {
+          throw new Error(action.error);
+        }
+
         if (shouldRequestScreenshot && !shouldUseScreenshot) {
           this.updateTaskState({
             forceUseScreenshot: true,
@@ -824,11 +968,15 @@ export class BrowserUse {
           return this.requestAICompletion(
             domResult,
             screenshotDataUrl,
-
-            webTitle,
             abortSignal,
           ) as Promise<NextAction>;
         }
+
+        this.logDebug('AI completion successful', {
+          modelUsed: modelInfo.model,
+          contentLength: response?.length,
+          usage: completion.usage,
+        });
 
         return {
           action,
@@ -837,6 +985,7 @@ export class BrowserUse {
           isScreenshot: shouldUseScreenshot,
         } as NextAction;
       } catch (error) {
+        this.logDebug(`AI completion failed: ${(error as Error).message}`);
         if (attempt === this.MAX_AI_COMPLETION_RETRIES || abortSignal?.aborted) {
           this.updateTaskState({
             status: 'failed',
@@ -846,7 +995,9 @@ export class BrowserUse {
         }
 
         // 指数退避重试
-        await sleep(this.ACTION_DELAY * attempt);
+        const retryDelay = this.ACTION_DELAY * attempt;
+        this.logDebug(`Retrying in ${retryDelay}ms`);
+        await sleep(retryDelay);
       }
     }
 
@@ -871,6 +1022,7 @@ export class BrowserUse {
   private updateTaskState(newState: Partial<TaskState>) {
     const taskState = this.getTaskState();
     if (taskState) {
+      this.logDebug('Updating task state:', newState);
       this.taskInfo = Object.assign(taskState, newState);
     }
   }

@@ -68,6 +68,11 @@ const baseActions: ActionDefinition[] = [
     args: [],
   },
   {
+    name: 'loadPage',
+    description: 'Load a page',
+    args: [{ name: 'url', type: 'string', description: 'URL to load' }],
+  },
+  {
     name: 'identifyBlocker',
     description:
       'Identify and report obstacles preventing task completion, such as login requirements, captchas, access restrictions, etc.',

@@ -4,9 +4,9 @@ import type { CompletionUsage } from 'openai/resources';
 import type { ElectronInputSimulator } from '../electron-input-simulator';
 
 export type ParsedResponseSuccess = {
-  thought: string;
+  instruction: string;
   action: string;
-  summary?: string;
+  information?: string;
   error?: string;
   parsedAction: {
     name: string;
@@ -28,7 +28,7 @@ export type NextAction = {
 };
 
 export type TaskHistoryEntry = {
-  summary?: string;
+  information?: string;
   error?: string;
 } & NextAction;
 
@@ -59,13 +59,13 @@ export type BrowserUseOptions = {
       model: string;
     };
   };
+  debug?: boolean;
 };
 
 export type RunOptions = {
   instruction: string;
   webUrl: string;
   webTitle: string;
-  needSummary?: boolean;
   useScreenshot?: boolean;
   actionCallback?: (action: string) => void;
   abortSignal: AbortSignal;
