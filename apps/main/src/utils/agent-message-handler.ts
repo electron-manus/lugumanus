@@ -1,4 +1,4 @@
-import type { Message, MessageStatus } from '@prisma/client';
+import type { Message, MessageStatus, MessageType, Task } from '@prisma/client';
 import { caller } from '../app-router.js';
 import { removeFilterPatterns } from './filter-stream.js';
 
@@ -6,14 +6,30 @@ import { removeFilterPatterns } from './filter-stream.js';
 export class MessageHandler {
   constructor(private readonly conversationId: string) {}
 
-  async createMessage(roleName: string) {
+  async createMessage(roleName: string, taskId?: string, type: MessageType = 'TEXT') {
     return await caller.message.addMessage({
       conversationId: this.conversationId,
       content: '',
-      type: 'TEXT',
+      type,
       role: 'ASSISTANT',
       status: 'PENDING',
       roleName,
+      taskId,
+    });
+  }
+
+  async createTask(task: Pick<Task, 'type' | 'description' | 'payload'>) {
+    return await caller.task.createTask({
+      type: task.type,
+      description: task.description,
+      payload: task.payload,
+    });
+  }
+
+  async completeTask(task: Task) {
+    await caller.task.updateTask({
+      id: task.id,
+      payload: task.payload,
     });
   }
 

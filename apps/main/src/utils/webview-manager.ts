@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { WebContentsView } from 'electron';
 import type { ReplaySubject } from 'rxjs';
 import type { Studio } from '../agent/studio/index.js';
@@ -18,13 +19,16 @@ export class WebViewManager {
   async initialize(mainWindow: Electron.BrowserWindow): Promise<WebContentsView> {
     this.webview = new WebContentsView({
       webPreferences: {
-        nodeIntegration: false,
+        nodeIntegration: true,
         contextIsolation: true,
         allowRunningInsecureContent: true,
+        preload: join(import.meta.dirname, './studio-preload/index.js'),
       },
     });
 
     mainWindow.contentView.addChildView(this.webview);
+    // this.webview.webContents.openDevTools();
+
     return this.webview;
   }
 
