@@ -10,10 +10,9 @@ export type StudioActionType =
   | 'openFolder'
   | 'openUrl'
   | 'executeBrowserAction'
-  | 'showImage'
-  | 'showMarkdown'
-  | 'showText'
-  | 'showSearchResults'
+  | 'image'
+  | 'editor'
+  | 'searchResults'
   | 'collect';
 
 export type PreviewListItem = {
@@ -25,7 +24,6 @@ export type PreviewListItem = {
 
 // 提取通用的Payload类型
 export type ShowTextPayload = { text: string };
-export type ShowMarkdownPayload = { text: string };
 export type ShowImagePayload = { url: string };
 export type ShowSearchResultsPayload = {
   query: string;
@@ -33,10 +31,9 @@ export type ShowSearchResultsPayload = {
 };
 
 export type CommonAction =
-  | { type: 'showText'; payload: ShowTextPayload; description: string }
-  | { type: 'showMarkdown'; payload: ShowMarkdownPayload; description: string }
-  | { type: 'showImage'; payload: ShowImagePayload; description: string }
-  | { type: 'showSearchResults'; payload: ShowSearchResultsPayload; description: string };
+  | { type: 'editor'; payload: unknown; description: string }
+  | { type: 'image'; payload: ShowImagePayload; description: string }
+  | { type: 'searchResults'; payload: ShowSearchResultsPayload; description: string };
 
 // 使用联合类型定义不同类型的 Studio 动作
 export type StudioAction =
