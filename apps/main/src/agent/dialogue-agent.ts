@@ -7,13 +7,9 @@ import {
   toNextInstructionPrompt,
   userPrompt,
 } from '../prompt/index.js';
-import { chartToolkits } from '../toolkits/chart-toolkit/index.js';
-import { documentToolkits } from '../toolkits/document-toolkit/index.js';
-import { fileToolkits } from '../toolkits/file-toolkit/index.js';
-import { searchToolkits } from '../toolkits/search-toolkit/index.js';
 import type { SpecializedToolAgent } from '../toolkits/types.js';
-import { webPageSummaryToolkits } from '../toolkits/web-page-summary/index.js';
 import { BaseAgent } from './base-agent.js';
+import { tools } from './tools.js';
 import type { AgentTaskRef } from './type.js';
 
 type Parameters = {
@@ -22,16 +18,8 @@ type Parameters = {
   context?: string;
 };
 
-const tools = [
-  ...searchToolkits,
-  ...webPageSummaryToolkits,
-  ...chartToolkits,
-  ...documentToolkits,
-  ...fileToolkits,
-];
-
 export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
-  readonly name = 'dialogue assistant';
+  override readonly name = 'dialogue assistant';
   readonly description = 'A dialogue assistant that can help you with your questions.';
   readonly parameters = {
     type: 'object',
@@ -52,7 +40,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
   readonly strict = true;
 
   private userAgent = new BaseAgent({
-    temperature: 0.5,
+    temperature: 0.3,
   });
 
   private assistantAgent = new BaseAgent({
@@ -71,13 +59,14 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
 
   async execute(query: Parameters, taskRef: AgentTaskRef): Promise<string> {
     this.assistantAgent.initialSystemMessage(
-      assistantPrompt(query.question, query.expected_result),
+      assistantPrompt(query.question, query.expected_result, query.context),
     );
 
     this.userAgent.initialSystemMessage(
       userPrompt(
         query.question,
         tools.map((tool) => `${tool.name}: ${tool.description}`),
+        query.context,
       ),
     );
 
@@ -164,7 +153,7 @@ export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
     let assistantAgentContent = await lastValueFrom(assistantAgentCompletion.contentStream);
 
     if (!userAgentContent.toUpperCase().includes('TASK_DONE')) {
-      assistantAgentContent += toNextInstructionPrompt(userAgentContent);
+      assistantAgentContent = toNextInstructionPrompt(assistantAgentContent);
     }
 
     return [userAgentContent, assistantAgentContent];

@@ -7,9 +7,14 @@ export type MessageStream = Message & {
 };
 
 export type AgentTaskRef = {
+  conversationId: string;
   abortSignal: AbortSignal;
   studio: Studio;
   observer: ReplaySubject<MessageStream>;
-  createMessage: (roleName: string) => Promise<MessageStream>;
+  createTaskMessage: (
+    task: Pick<Task, 'type' | 'description' | 'payload'>,
+  ) => Promise<MessageStream>;
+  completeTaskMessage: (task: Task) => Promise<void>;
+  createMessage: (roleName: string, taskId?: string) => Promise<MessageStream>;
   completeMessage: (message: MessageStream, status?: MessageStatus) => Promise<void>;
 };

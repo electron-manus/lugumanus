@@ -8,12 +8,13 @@ import {
 } from '../prompt/index.js';
 import { BaseAgent } from './base-agent.js';
 import { DialogueAgent } from './dialogue-agent.js';
+import { TaskOrientedAgent } from './task-oriented-agent.js';
 import type { AgentTaskRef } from './type.js';
 
 export class CoordinateRolePlayAgent {
   private roleAgent: BaseAgent = new BaseAgent({
     temperature: 0,
-    tools: [new DialogueAgent()],
+    tools: [new DialogueAgent(), new TaskOrientedAgent()],
   });
 
   async play(task: string, taskRef: AgentTaskRef) {

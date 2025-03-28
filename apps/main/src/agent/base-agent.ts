@@ -1,4 +1,7 @@
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import type { ModelType } from '@prisma/client';
+import { app } from 'electron';
 import type {
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
@@ -6,6 +9,7 @@ import type {
 } from 'openai/resources/index.mjs';
 import type { FunctionDefinition } from 'openai/resources/shared.mjs';
 import { lastValueFrom } from 'rxjs';
+import { v4 as uuidv4 } from 'uuid';
 import { loadSdkAndModel } from '../ai-sdk/index.js';
 import { ChatCompletion } from '../model/chat-completion.js';
 import type { SpecializedToolAgent } from '../toolkits/types.js';
@@ -24,6 +28,10 @@ export class BaseAgent {
   private readonly MAX_HISTORY_LENGTH = 30;
   private readonly MAX_TOOLS = 180;
 
+  private uuid = uuidv4();
+
+  protected name = '';
+
   constructor(options?: {
     temperature?: number;
     tools?: SpecializedToolAgent[];
@@ -34,6 +42,15 @@ export class BaseAgent {
     if (this.tools.length > this.MAX_TOOLS) {
       throw new Error('Too many tools');
     }
+  }
+
+  get publicMessageHistory() {
+    return [...this.messageHistory];
+  }
+
+  clearMessageHistory() {
+    this.systemMessage = '';
+    this.messageHistory = [];
   }
 
   initialSystemMessage(systemMessage: string) {
@@ -47,6 +64,7 @@ export class BaseAgent {
   addToHistory(
     role: Message['role'],
     content: string,
+    taskRef?: AgentTaskRef,
     toolCalls?: ChatCompletionMessageToolCall[],
     toolCallId?: string,
   ): void {
@@ -66,6 +84,28 @@ export class BaseAgent {
 
     this.messageHistory.push(message);
     this.trimMessageHistory();
+
+    if (taskRef) {
+      const promptsFilePath = path.join(
+        app.getPath('userData'),
+        taskRef.conversationId,
+        'prompts',
+        `${this.name}-${this.uuid}.md`,
+      );
+      writeFileSync(
+        promptsFilePath,
+        JSON.stringify(
+          this.messageHistory.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+            toolCalls: msg.tool_calls,
+            toolCallId: msg.tool_call_id,
+          })),
+          null,
+          2,
+        ),
+      );
+    }
   }
 
   private trimMessageHistory(): void {
@@ -156,11 +196,11 @@ export class BaseAgent {
     }
 
     const results = [];
-    this.addToHistory('assistant', '', toolCalls);
+    this.addToHistory('assistant', '', taskRef, toolCalls);
 
     for (const toolCall of toolCalls) {
       if (taskRef.abortSignal.aborted) {
-        this.addToHistory('tool', 'User cancelled the operation', undefined, toolCall.id);
+        this.addToHistory('tool', 'User cancelled the operation', taskRef, undefined, toolCall.id);
         continue;
       }
 
@@ -171,7 +211,7 @@ export class BaseAgent {
         const tool = tools.find((t) => t.name === toolName);
         if (!tool) {
           console.error(`Tool not found: ${toolName}`);
-          this.addToHistory('tool', `Tool not found: ${toolName}`, undefined, toolCall.id);
+          this.addToHistory('tool', `Tool not found: ${toolName}`, taskRef, undefined, toolCall.id);
           continue;
         }
 
@@ -188,12 +228,14 @@ export class BaseAgent {
           this.addToHistory(
             'tool',
             `Failed to parse tool arguments: ${(e as Error).message}, ${toolArgs}`,
+            taskRef,
             undefined,
             toolCall.id,
           );
           continue;
         }
 
+        taskRef.studio.browserUse.webContentsView.setVisible(false);
         const result = await tool.execute(parsedArgs, taskRef);
 
         if (process.env.NODE_ENV !== 'production') {
@@ -209,12 +251,13 @@ export class BaseAgent {
 
         if (result) {
           const content = typeof result === 'string' ? result : JSON.stringify(result);
-          this.addToHistory('tool', content, undefined, toolCall.id);
+          this.addToHistory('tool', content, taskRef, undefined, toolCall.id);
           results.push({ toolCall, result });
         } else {
           this.addToHistory(
             'tool',
             `Tool ${toolName} completed execution but returned no result`,
+            taskRef,
             undefined,
             toolCall.id,
           );
@@ -225,6 +268,7 @@ export class BaseAgent {
         this.addToHistory(
           'tool',
           `Tool ${toolCall.function.name} execution failed: ${errorMessage}`,
+          taskRef,
           undefined,
           toolCall.id,
         );

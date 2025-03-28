@@ -1,5 +1,5 @@
+import { BrowserUse, ElectronInputSimulator } from '@lugu-manus/electron-browser-use';
 import type { MessageStatus } from '@prisma/client';
-import { BrowserUse, ElectronInputSimulator } from 'electron-browser-use';
 import { ReplaySubject } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { loadSdkAndModel } from '../ai-sdk/index.js';
@@ -54,7 +54,19 @@ export class ConversionActorAgent {
 
       // 初始化BrowserUse
       this.browserUse = new BrowserUse({
-        browserSimulator: new ElectronInputSimulator(webview),
+        browserSimulator: new ElectronInputSimulator(webview, {
+          mouseAnimationCommand: 'Main.mouseMoveThenClick',
+          setEditableValueCommand: 'Main.setValue',
+          elementBlurCommand: 'Main.blurElement',
+          getActiveElementObjectIdCommand: 'Main.getObjectIdByFocusElement',
+          isEditableElementCommand: 'Main.isInputElement',
+          getBoundingClientRectCommand: 'Main.getBoundingClientRect',
+          getWindowHeightCommand: 'Main.getWindowHeight',
+          getAnnotatedHTML: 'Main.getAnnotatedHTML',
+          showOperation: 'Main.showOperation',
+          elementIdConvertObjectIdCommand: 'Main.geObjectIdByElementById',
+        }),
+        debug: true,
         models: {
           // @ts-ignore
           text: models.TEXT,
@@ -138,9 +150,19 @@ export class ConversionActorAgent {
       throw new Error('Studio not initialized');
     }
     return {
+      conversationId: this.conversationId,
       abortSignal: this.abortSignal,
       observer: this.observer,
-      createMessage: (roleName: string) => this.messageHandler.createMessage(roleName),
+      createTaskMessage: async (task) => {
+        const taskModel = await this.messageHandler.createTask(task);
+        const messageModel = await this.messageHandler.createMessage('Task', taskModel.id, 'TASK');
+        return messageModel;
+      },
+      completeTaskMessage: async (task) => {
+        await this.messageHandler.completeTask(task);
+      },
+      createMessage: (roleName: string, taskId?: string) =>
+        this.messageHandler.createMessage(roleName, taskId),
       completeMessage: (message, status = 'COMPLETED' as MessageStatus) =>
         this.messageHandler.completeMessage(message, status),
       studio: this.studio,
