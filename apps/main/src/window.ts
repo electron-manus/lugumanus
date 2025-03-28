@@ -15,11 +15,11 @@ export function createMainWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
-    frame: false,
+    frame: true,
     show: true,
     resizable: false,
     fullscreenable: false,
-    titleBarStyle: 'hidden' as const,
+    titleBarStyle: 'default',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: true,
