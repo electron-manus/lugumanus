@@ -1,7 +1,10 @@
-import type { StudioActionType } from '@lugu-manus/share';
+import type { StudioAction, StudioActionType } from '@lugu-manus/share';
+import type { MessageStatus } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import conversationAgentManager from '../agent/conversation-agent-manager.js';
+import type { MessageStream } from '../agent/type.js';
+import { browserUseToolkits } from '../toolkits/browser-user-toolkit/index.js';
 import { t } from '../trpc.js';
 import { removeFilterPatterns } from '../utils/filter-stream.js';
 import { observableToGenerator } from '../utils/observable-to-generator.js';
@@ -122,10 +125,21 @@ const conversationRouter = t.router({
       const agentContext = await conversationAgentManager.getOrCreateAgentContext(
         message.conversationId,
       );
+
+      let payload = message.task?.payload;
+      if (payload) {
+        try {
+          payload = JSON.parse(payload);
+        } catch (error) {
+          payload = message.task?.payload;
+        }
+      }
+
       agentContext.agent.getStudio()?.preview({
         type: message.task?.type as StudioActionType,
         description: message.task?.description || '',
-        payload: JSON.parse(message.task?.payload || '{}'),
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        payload: payload as any,
       });
     }),
 });

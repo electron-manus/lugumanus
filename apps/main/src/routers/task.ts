@@ -21,6 +21,21 @@ const taskRouter = t.router({
       });
       return task;
     }),
+
+  updateTask: t.procedure
+    .input(
+      z.object({
+        id: z.string(),
+        payload: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const task = await ctx.prisma.task.update({
+        where: { id: input.id },
+        data: { payload: input.payload },
+      });
+      return task;
+    }),
 });
 
 export default taskRouter;
