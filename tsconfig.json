@@ -11,6 +11,9 @@
     },
     {
       "path": "./packages/share"
+    },
+    {
+      "path": "./packages/test"
     }
   ]
 }

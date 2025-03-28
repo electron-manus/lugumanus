@@ -47,3 +47,5 @@ __locals__/
 .nx
 .cursor
 *.db
+
+*cache

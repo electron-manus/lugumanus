@@ -6,6 +6,9 @@
       "path": "../main"
     },
     {
+      "path": "../../packages/share"
+    },
+    {
       "path": "./tsconfig.app.json"
     }
   ],

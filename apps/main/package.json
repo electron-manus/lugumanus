@@ -7,7 +7,15 @@
   "nx": {
     "$schema": "../../node_modules/nx/schemas/nx-schema.json",
     "targets": {
+      "push-sqlite": {
+        "executor": "nx:run-commands",
+        "options": {
+          "cwd": "apps/main",
+          "commands": ["prisma db push"]
+        }
+      },
       "dev": {
+        "dependsOn": ["push-sqlite"],
         "executor": "nx:run-commands",
         "defaultConfiguration": "development",
         "options": {
@@ -22,6 +30,8 @@
     }
   },
   "dependencies": {
+    "@lugu-manus/share": "*",
+    "@lugu-manus/electron-browser-use": "*",
     "@prisma/client": "6.5.0",
     "@types/js-yaml": "^4.0.9",
     "@types/unzipper": "^0.10.11",
@@ -31,7 +41,6 @@
     "cheerio": "^1.0.0",
     "chromadb": "^2.1.0",
     "electron": "^35.0.3",
-    "electron-browser-use": "^0.0.3",
     "electron-is-dev": "^3.0.1",
     "exceljs": "^4.4.0",
     "install": "^0.13.0",
@@ -45,7 +54,6 @@
     "rxjs": "^7.8.2",
     "unzipper": "^0.12.3",
     "xml2js": "^0.6.2",
-    "@lugu-manus/share": "workspace:*",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -7,8 +7,6 @@ import { debounce } from 'lodash';
 import sharePkg from '../../../package.json';
 import pkg from '../package.json';
 
-// const pkg = require(join(ROOT_DIR, "package.json"));
-
 const ROOT_DIR = resolve(import.meta.dirname, '../');
 const SRC_DIR = join(ROOT_DIR, 'src');
 const DIST_DIR = join(ROOT_DIR, 'dist');
@@ -18,11 +16,18 @@ let electronProcess: ChildProcess | null = null;
 
 // 编译 TypeScript 文件
 async function compile() {
-  console.log('🔄 正在编译 TypeScript 文件...');
+  console.log('🔄 正在编译 TypeScript 文件...', [
+    ...Object.keys(pkg.dependencies),
+    ...Object.keys(sharePkg.dependencies),
+  ]);
 
   try {
     await Bun.build({
-      entrypoints: [join(SRC_DIR, 'main.ts'), join(SRC_DIR, 'preload.ts')],
+      entrypoints: [
+        join(SRC_DIR, 'main.ts'),
+        join(SRC_DIR, 'preload.ts'),
+        join(SRC_DIR, 'studio-preload/index.ts'),
+      ],
       outdir: DIST_DIR,
       target: 'node',
       external: [...Object.keys(pkg.dependencies), ...Object.keys(sharePkg.dependencies)],
@@ -31,7 +36,7 @@ async function compile() {
     console.log('✅ 编译完成');
     return true;
   } catch (error) {
-    console.error('❌ 编译失败:', error);
+    console.error('❌ 编译失败:\n', error);
     return false;
   }
 }
@@ -43,7 +48,14 @@ const debouncedStartElectron = debounce(() => {
     electronProcess = null;
   }
 
-  electronProcess = spawn(ELECTRON_BIN, [join(DIST_DIR, 'main.js')], {
+  const args = [join(DIST_DIR, 'main.js')];
+
+  // 添加调试参数
+  if (process.env.DEBUG_MAIN_PROCESS === 'true') {
+    args.unshift('--inspect=5858');
+  }
+
+  electronProcess = spawn(ELECTRON_BIN, args, {
     stdio: 'inherit',
     env: { ...process.env, NODE_ENV: process.env.NODE_ENV || 'development' },
   });
@@ -53,7 +65,7 @@ const debouncedStartElectron = debounce(() => {
       console.error(`Electron 进程已退出，退出码: ${code}`);
     }
   });
-}, 1000); // 延迟500毫秒
+}, 1000); // 延迟1000毫秒
 
 // 监听文件变化
 function watchFiles() {

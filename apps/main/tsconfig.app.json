@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "types": ["node", "bun-types"],
+    "lib": ["DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "rootDir": "src",
