@@ -1,11 +1,10 @@
-import { writeFileSync } from 'node:fs';
 import { BaseAgent } from '../../agent/base-agent.js';
 import type { AgentTaskRef } from '../../agent/type.js';
 import { getHtmlCode } from '../../javascript-code/get-html.js';
 import type { SpecializedToolAgent } from '../types.js';
 import { extractHtmlContent } from './extract-html-content.js';
 export class WebPageSummaryAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'WebPageSummaryTool';
+  override name = 'WebPageSummaryTool';
 
   description = 'Web page summary tool';
 

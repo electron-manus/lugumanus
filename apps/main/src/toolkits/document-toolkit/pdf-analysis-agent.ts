@@ -10,7 +10,7 @@ import type { TextItem } from 'pdfjs-dist/types/src/display/api.js';
 import { chartToolkits } from '../chart-toolkit/index.js';
 
 export class PdfAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'PdfAnalysisTool';
+  override name = 'PdfAnalysisTool';
 
   description = 'Pdf analysis tool';
 

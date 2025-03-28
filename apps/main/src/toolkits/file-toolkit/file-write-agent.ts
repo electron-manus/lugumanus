@@ -1,12 +1,13 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { app } from 'electron';
 import yaml from 'js-yaml';
 import { BaseAgent } from '../../agent/base-agent.js';
 import type { AgentTaskRef } from '../../agent/type.js';
 import type { SpecializedToolAgent } from '../types.js';
 
 export class FileWriteAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'FileWriteTool';
+  override name = 'FileWriteTool';
 
   description = 'A tool for writing content to files';
 
@@ -32,10 +33,15 @@ export class FileWriteAgent extends BaseAgent implements SpecializedToolAgent {
   strict = true;
 
   async execute(query: Record<string, unknown>, taskRef: AgentTaskRef): Promise<string> {
-    const filePath = query.filePath as string;
+    let filePath = query.filePath as string;
     const content = query.content as string;
     const encoding = (query.encoding as string) || 'utf-8';
     const append = Boolean(query.append);
+
+    // 判断是否绝对路径
+    if (!path.isAbsolute(filePath)) {
+      filePath = path.resolve(app.getPath('userData'), taskRef.conversationId, filePath);
+    }
 
     const absolutePath = path.resolve(filePath);
     // 确保目录存在
@@ -47,9 +53,22 @@ export class FileWriteAgent extends BaseAgent implements SpecializedToolAgent {
       await fs.writeFile(absolutePath, content, { encoding: encoding as BufferEncoding });
     }
 
+    await taskRef.studio.start(
+      {
+        type: 'editor',
+        payload: {
+          text: content,
+        },
+        description: absolutePath,
+      },
+      taskRef.observer,
+      taskRef.abortSignal,
+    );
+
     return yaml.dump({
       success: true,
       path: absolutePath,
+      message: `File has been ${append ? 'appended' : 'written'}`,
     });
   }
 }

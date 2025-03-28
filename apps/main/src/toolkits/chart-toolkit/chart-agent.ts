@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createCanvas } from 'canvas';
-import { Chart } from 'chart.js/auto';
+import { Chart, type ChartItem } from 'chart.js/auto';
 import { app } from 'electron';
 import yaml from 'js-yaml';
 import { BaseAgent } from '../../agent/base-agent.js';
@@ -44,7 +44,7 @@ interface ChartResult {
 }
 
 export class ChartAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'ChartAgent';
+  override name = 'ChartAgent';
 
   description = 'Chart agent';
 
@@ -284,7 +284,7 @@ export class ChartAgent extends BaseAgent implements SpecializedToolAgent {
     }
 
     // 创建图表
-    const chart = new Chart(ctx, {
+    const chart = new Chart(ctx as unknown as ChartItem, {
       type: config.type === 'area' ? 'line' : config.type,
       data: chartData,
       options: chartOptions,
@@ -299,9 +299,6 @@ export class ChartAgent extends BaseAgent implements SpecializedToolAgent {
     // 将 canvas 转换为图片并保存
     const buffer = canvas.toBuffer('image/png');
     fs.writeFileSync(filePath, buffer);
-
-    // 生成可访问的文件路径 (file:// URL)
-    const fileUrl = `file://${filePath}`;
 
     return {
       chartData: config,

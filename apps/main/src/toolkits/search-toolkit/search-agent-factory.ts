@@ -29,7 +29,7 @@ interface SearchEngineConfig {
 // 创建搜索代理的工厂函数
 export function createSearchAgent(config: SearchEngineConfig): SpecializedToolAgentConstructor {
   return class SearchAgent extends BaseAgent implements SpecializedToolAgent {
-    name = `${config.name}SearchTool`;
+    override name = `${config.name}SearchTool`;
     description = config.description;
     parameters = {
       type: 'object',
@@ -91,7 +91,7 @@ export function createSearchAgent(config: SearchEngineConfig): SpecializedToolAg
 
       await taskRef.studio.start(
         {
-          type: 'showSearchResults',
+          type: 'searchResults',
           description: query.query,
           payload: {
             query: query.query,

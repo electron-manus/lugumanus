@@ -38,7 +38,7 @@ interface MarkdownStructure {
 }
 
 export class MarkdownAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'MarkdownAnalysisTool';
+  override name = 'MarkdownAnalysisTool';
 
   description =
     'Markdown document analysis tool that can parse and analyze documents in Markdown format';

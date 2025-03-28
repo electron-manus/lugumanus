@@ -12,16 +12,8 @@ interface SlideWithNumber extends SlideContent {
   number: number;
 }
 
-interface PptxParseResult {
-  totalSlides: number;
-  analyzedSlides: number;
-  summary: string;
-  analysis?: string;
-  error?: string;
-}
-
 export class PowerPointAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'PowerPointAnalysisTool';
+  override name = 'PowerPointAnalysisTool';
 
   description =
     'PowerPoint Presentation Analysis Tool, capable of extracting and analyzing content from PPT files';

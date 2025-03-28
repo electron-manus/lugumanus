@@ -35,7 +35,7 @@ interface WordDocumentStructure {
 }
 
 export class WordAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'WordAnalysisTool';
+  override name = 'WordAnalysisTool';
 
   description = 'Word Document Analysis Tool';
 

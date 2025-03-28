@@ -5,7 +5,7 @@ import { BaseAgent } from '../../agent/base-agent.js';
 import type { AgentTaskRef } from '../../agent/type.js';
 import type { SpecializedToolAgent } from '../types.js';
 export class FileReadAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'FileReadTool';
+  override name = 'FileReadTool';
 
   description = 'A tool for reading file contents';
 

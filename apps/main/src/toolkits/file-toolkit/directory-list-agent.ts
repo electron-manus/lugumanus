@@ -22,7 +22,7 @@ type FileSystemEntry = FileEntry | DirectoryEntry;
 type RecursiveResult = Array<FileSystemEntry>;
 
 export class DirectoryListAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'DirectoryListTool';
+  override name = 'DirectoryListTool';
 
   description = 'A tool for listing directory contents';
 

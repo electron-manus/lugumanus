@@ -29,7 +29,7 @@ interface ExcelParseResult {
 }
 
 export class ExcelAnalysisAgent extends BaseAgent implements SpecializedToolAgent {
-  name = 'ExcelAnalysisTool';
+  override name = 'ExcelAnalysisTool';
 
   description =
     'Excel Spreadsheet Analysis Tool, capable of extracting and analyzing data from Excel files';
