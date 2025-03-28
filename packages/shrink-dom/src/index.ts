@@ -1,7 +1,6 @@
 export { DOMDomainAnalyzer } from './dom-domain-analyzer';
-export { DOMShrinker } from './shrink-dom';
 export { DOMContentExtractor } from './dom-content-extractor';
-
+export { HTMLTemplateProcessor } from './templatize';
 export type {
   ExtractorOptions,
   JsonNode,

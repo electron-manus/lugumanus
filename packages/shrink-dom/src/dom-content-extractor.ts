@@ -20,6 +20,7 @@ export class DOMContentExtractor {
     'value',
     'role',
     'title',
+    'for',
   ];
 
   static readonly EMPHASIS_TAGS = [
@@ -72,6 +73,51 @@ export class DOMContentExtractor {
   // 需要跳过的关键词
   private readonly skipKeywords: string[];
 
+  // 标签名映射表 - 将长标签名映射为简短版本
+  private readonly tagNameMap: Record<string, string> = {
+    BUTTON: 'btn',
+    TEXTAREA: 'txt',
+    PARAGRAPH: 'p',
+    SECTION: 'sec',
+    ARTICLE: 'art',
+    HEADER: 'hdr',
+    FOOTER: 'ftr',
+    NAVIGATION: 'nav',
+    CONTAINER: 'cnt',
+    DIV: 'd',
+    SPAN: 'spn',
+    A: 'a',
+    UL: 'ul',
+    OL: 'ol',
+    LI: 'li',
+    TABLE: 'tbl',
+    TR: 'tr',
+    TD: 'td',
+    TH: 'th',
+    FORM: 'frm',
+    IFRAME: 'ifr',
+    INPUT: 'inp',
+    SELECT: 'sel',
+    OPTION: 'opt',
+    LABEL: 'lbl',
+    FIELDSET: 'fset',
+    MAIN: 'main',
+    ASIDE: 'asd',
+    FIGURE: 'fig',
+    FIGCAPTION: 'fcap',
+    BLOCKQUOTE: 'bq',
+    CODE: 'code',
+    PRE: 'pre',
+    DETAILS: 'dtl',
+    SUMMARY: 'smry',
+    CANVAS: 'cnv',
+    VIDEO: 'vid',
+    AUDIO: 'aud',
+    SOURCE: 'src',
+    IMG: 'img',
+    // 可以添加更多标签名映射
+  };
+
   /**
    * 创建内容提取器实例
    * @param options 配置选项
@@ -99,7 +145,31 @@ export class DOMContentExtractor {
    * @returns 提取后的DOM节点或null
    */
   public extract(element: ChildNode): ChildNode | null {
-    return this.transformNode(element);
+    return this.transformNode(element, false);
+  }
+
+  /**
+   * 提取极度紧凑的DOM内容
+   * @param element 需要处理的DOM节点
+   * @returns 提取后的紧凑DOM节点或null
+   */
+  public extractCompact(element: ChildNode): ChildNode | null {
+    return this.transformNode(element, false);
+  }
+
+  /**
+   * 提取极度紧凑的DOM内容
+   * @param element 需要处理的DOM节点
+   * @returns 提取后的紧凑DOM节点或null
+   */
+  public extractCompactString(element: string) {
+    const dom = new JSDOM(element);
+    if (!dom.window.document.documentElement) {
+      throw new Error('DOM is not valid');
+    }
+
+    const result = this.extractCompact(dom.window.document.documentElement);
+    return (result as HTMLElement)?.outerHTML ?? '';
   }
 
   /**
@@ -158,7 +228,7 @@ export class DOMContentExtractor {
    * @returns 处理后的DOM节点或null
    * @private
    */
-  private transformNode(element: ChildNode): ChildNode | null {
+  private transformNode(element: ChildNode, compact: boolean): ChildNode | null {
     // 处理文本节点
     if (this.isTextNode(element)) {
       const text = element.textContent?.trim();
@@ -190,7 +260,7 @@ export class DOMContentExtractor {
     }
 
     // 批量处理子节点
-    const processedChildren = this.processChildNodes(htmlElement, tagName);
+    const processedChildren = this.processChildNodes(htmlElement, tagName, compact);
 
     // 如果子节点为空且不是表单元素，则不保留
     if (processedChildren.length === 0 && !this.formElementTags.has(tagName)) {
@@ -206,7 +276,7 @@ export class DOMContentExtractor {
     }
 
     // 创建并配置新容器
-    return this.createContainerWithAttributes(htmlElement, tagName, processedChildren);
+    return this.createContainerWithAttributes(htmlElement, tagName, processedChildren, compact);
   }
 
   // 辅助方法：判断节点类型
@@ -274,7 +344,7 @@ export class DOMContentExtractor {
   }
 
   // 辅助方法：处理子节点
-  private processChildNodes(element: HTMLElement, tagName: string): ChildNode[] {
+  private processChildNodes(element: HTMLElement, tagName: string, compact: boolean): ChildNode[] {
     const childNodes = element.childNodes;
     const childrenLength = childNodes.length;
     const processedChildren: ChildNode[] = [];
@@ -283,7 +353,7 @@ export class DOMContentExtractor {
     for (let i = 0; i < childrenLength; i++) {
       const childNode = childNodes[i];
       if (childNode) {
-        const result = this.transformNode(childNode);
+        const result = this.transformNode(childNode, compact);
         if (result) processedChildren.push(result);
       }
     }
@@ -318,8 +388,13 @@ export class DOMContentExtractor {
     htmlElement: HTMLElement,
     tagName: string,
     processedChildren: ChildNode[],
+    compact = false,
   ): HTMLElement {
-    const container = this.documentNode.createElement(tagName);
+    // 使用简化的标签名
+    const shortTagName = compact
+      ? this.tagNameMap[tagName] || tagName.toLowerCase()
+      : tagName.toLowerCase();
+    const container = this.documentNode.createElement(shortTagName);
     const elementText = htmlElement.textContent?.trim() || '';
 
     // 预先检查是否存在title和aria-label，并且它们的值相同
@@ -330,26 +405,30 @@ export class DOMContentExtractor {
     // 获取属性名列表
     const attrNames = htmlElement.getAttributeNames();
 
-    for (let i = 0; i < attrNames.length; i++) {
-      const attr = attrNames[i];
-      if (attr && this.preservedAttributesSet.has(attr)) {
-        const attrValue = htmlElement.getAttribute(attr) as string;
+    if (!compact) {
+      for (let i = 0; i < attrNames.length; i++) {
+        const attr = attrNames[i];
+        if (attr && this.preservedAttributesSet.has(attr)) {
+          const attrValue = htmlElement.getAttribute(attr) as string;
 
-        // 跳过与文本内容相同的title和aria-label
-        if ((attr === 'title' || attr === 'aria-label') && attrValue === elementText) {
-          continue;
+          // 跳过与文本内容相同的title和aria-label
+          if ((attr === 'title' || attr === 'aria-label') && attrValue === elementText) {
+            continue;
+          }
+
+          // 如果title和aria-label值相同，只保留aria-label
+          if (titleEqualsAriaLabel && attr === 'title') {
+            continue;
+          }
+
+          // 使用简化的属性名
+          const shortAttrName = attr;
+          container.setAttribute(shortAttrName, attrValue);
         }
-
-        // 如果title和aria-label值相同，只保留aria-label
-        if (titleEqualsAriaLabel && attr === 'title') {
-          continue;
-        }
-
-        container.setAttribute(attr, attrValue);
       }
     }
 
-    // 处理特殊属性
+    // 处理特殊属性，使用更短的属性名
     const isInteractive =
       htmlElement.getAttribute('data-interactive') === 'true' || htmlElement.hasAttribute('role');
     const isEditable = htmlElement.getAttribute('data-editable') === 'true';
@@ -358,7 +437,9 @@ export class DOMContentExtractor {
       const dataId =
         htmlElement.getAttribute('data-id') || htmlElement.getAttribute('data-element-id');
       if (dataId) container.setAttribute('id', dataId);
-      if (isEditable) container.setAttribute('editable', 'true');
+      if (!compact) {
+        if (isEditable) container.setAttribute('editable', 'true'); // 缩短 editable 为 ed
+      }
     }
 
     // 批量添加子节点

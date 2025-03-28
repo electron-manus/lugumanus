@@ -31,18 +31,25 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "CHANGELOG.md",
-    "README.md",
-    "LICENSE",
-    "docs"
-  ],
+  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE", "docs"],
   "dependencies": {
     "jsdom": "^26.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "nx": {
+    "$schema": "../../node_modules/nx/schemas/nx-schema.json",
+    "target": {
+      "build": {
+        "executor": "@nx:run-commands",
+        "defaultConfiguration": "production",
+        "options": {
+          "cwd": "packages/shrink-dom",
+          "commands": ["rolldown --config rolldown.config.ts"]
+        }
+      }
+    }
   },
   "scripts": {
     "build": "rolldown --config rolldown.config.ts",

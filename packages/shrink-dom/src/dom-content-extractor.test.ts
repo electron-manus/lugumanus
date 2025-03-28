@@ -13,6 +13,8 @@ describe('DOMContentExtractor', () => {
     extractor = new DOMContentExtractor();
     dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     document = dom.window.document;
+    global.window = dom.window as unknown as Window & typeof globalThis;
+    global.document = dom.window.document;
   });
 
   // 辅助函数：创建测试DOM
@@ -208,17 +210,12 @@ describe('DOMContentExtractor', () => {
     it('应该处理大量节点', async () => {
       const html = await Bun.file(path.join(import.meta.dir, './mock/mock.html')).text();
       const dom = new JSDOM(html);
-      globalThis.window = dom.window as unknown as Window & typeof globalThis;
-      globalThis.document = dom.window.document;
-
       const analyzer = new DOMDomainAnalyzer();
-      const result = analyzer.getAnalyzedHTML(dom.window.document.documentElement);
-      const analyzedDOM = new JSDOM(result);
-      // console.log("🚀 ~ it ~ result:", result);
-      // const element = dom.window.document.body;
-      const result2 = extractor.extract(analyzedDOM.window.document.documentElement);
+      const analyzedHtml = analyzer.getAnalyzedHTML(dom.window.document.documentElement);
+      const compactHtml = extractor.extractCompactString(analyzedHtml);
 
-      expect(result2).not.toBeNull();
+      expect(compactHtml).not.toBeNull();
+      expect(compactHtml).toMatchSnapshot();
     });
   });
 });
