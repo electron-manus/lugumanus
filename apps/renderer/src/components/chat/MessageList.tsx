@@ -1,22 +1,21 @@
 import { Bubble } from '@ant-design/x';
-import { faRobot, faUser, faUsersCog, faWandSparkles } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useMemoizedFn } from 'ahooks';
 import clsx from 'clsx';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import MessageBubble from './MessageBubble';
 
 interface MessageListProps {
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   messages: any[];
-  messagesRef: React.RefObject<HTMLDivElement>;
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
   hasNextPage: boolean;
 }
 
 export const MessageList = React.memo(
-  ({ messages, messagesRef, isFetchingNextPage, onLoadMore, hasNextPage }: MessageListProps) => {
+  ({ messages, isFetchingNextPage, onLoadMore, hasNextPage }: MessageListProps) => {
+    const messagesRef = useRef<HTMLDivElement>(null);
+
     const handleScroll = useMemoizedFn(() => {
       const container = messagesRef.current;
       if (!container || !hasNextPage || isFetchingNextPage) return;
@@ -35,7 +34,15 @@ export const MessageList = React.memo(
       return () => {
         container.removeEventListener('scroll', handleScroll);
       };
-    }, [handleScroll, messagesRef.current]);
+    }, [handleScroll]);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+    useEffect(() => {
+      const container = messagesRef.current;
+      if (!container) return;
+
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }, [messages.length, messages[messages.length - 1]?.content]);
 
     return (
       <div

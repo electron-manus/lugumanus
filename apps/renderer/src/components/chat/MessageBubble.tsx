@@ -2,6 +2,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { StudioActionType } from '@lugu-manus/share';
 import { useMutation } from '@tanstack/react-query';
 import Markdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 import { getActionIcon, getActionName } from '../../utils/action-display';
 import { trpc } from '../../utils/trpc';
 
@@ -60,7 +63,9 @@ function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <div className="overflow-auto">
-      <Markdown>{message.content || ''}</Markdown>
+      <Markdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+        {message.content || ''}
+      </Markdown>
     </div>
   );
 }
