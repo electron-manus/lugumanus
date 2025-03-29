@@ -36,7 +36,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ conversationId }) 
   const isLoading = lastMessage?.status ? ['PENDING', 'IDLE'].includes(lastMessage?.status) : false;
 
   return (
-    <div className="w-[496px] px-6">
+    <div className="w-[496px] px-6 flex flex-col">
       <MessageList
         messages={displayMessages}
         isFetchingNextPage={isFetchingNextPage}

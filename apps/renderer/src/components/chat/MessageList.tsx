@@ -45,10 +45,7 @@ export const MessageList = React.memo(
     }, [messages.length, messages[messages.length - 1]?.content]);
 
     return (
-      <div
-        className={clsx('overflow-auto h-[calc(100vh-100px)] box-border pt-6 pr-6')}
-        ref={messagesRef}
-      >
+      <div className={clsx('overflow-auto flex-1 box-border pt-6 pr-6')} ref={messagesRef}>
         {isFetchingNextPage && (
           <div className="flex justify-center py-2">
             <span className="text-gray-500 text-sm">正在加载更多消息...</span>

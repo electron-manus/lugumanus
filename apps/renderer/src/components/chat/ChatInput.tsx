@@ -21,17 +21,19 @@ export const ChatInput = React.memo(
     };
 
     return (
-      <Sender
-        value={content}
-        onSubmit={handleSubmit}
-        onChange={setContent}
-        loading={loading}
-        onCancel={() => {
-          // 取消当前消息
-        }}
-        placeholder={!conversationId ? '请选择一个会话' : '请输入你想完成的任务'}
-        disabled={!conversationId}
-      />
+      <div className="pb-10">
+        <Sender
+          value={content}
+          onSubmit={handleSubmit}
+          onChange={setContent}
+          loading={loading}
+          onCancel={() => {
+            // 取消当前消息
+          }}
+          placeholder={!conversationId ? '请选择一个会话' : '请输入你想完成的任务'}
+          disabled={!conversationId}
+        />
+      </div>
     );
   },
 );
