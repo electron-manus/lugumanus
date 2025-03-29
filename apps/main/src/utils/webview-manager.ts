@@ -27,7 +27,6 @@ export class WebViewManager {
     });
 
     mainWindow.contentView.addChildView(this.webview);
-    // this.webview.webContents.openDevTools();
 
     return this.webview;
   }

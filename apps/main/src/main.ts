@@ -4,6 +4,13 @@ import { appRouter } from './app-router.js';
 import { createContext } from './trpc.js';
 import { createMainWindow, getMainWindow } from './window.js';
 
+process.on('unhandledRejection', (error) => {
+  if (process.env.NODE_ENV === 'development') {
+    // Will print "unhandledRejection err is not defined"
+    console.log('unhandledRejection', (error as Error).message);
+  }
+});
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'handle',

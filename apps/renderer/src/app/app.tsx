@@ -4,7 +4,6 @@ import { ConfigProvider, theme } from 'antd';
 import { useEffect } from 'react';
 import MainContent from '../components/MainContent';
 import QwenModelConfigModal from '../components/QwenModelConfigModal';
-import TitleBar from '../components/TitleBar';
 import { trpc } from '../utils/trpc';
 
 export function App() {
@@ -35,8 +34,6 @@ export function App() {
       }}
     >
       <div className="flex flex-col h-screen overflow-hidden">
-        <TitleBar appName="麓咕" />
-
         <MainContent />
 
         <QwenModelConfigModal visible={isModelConfigModalOpen} onClose={setModelConfigModalClose} />
