@@ -119,10 +119,16 @@ export class TaskOrientedAgent extends BaseAgent implements SpecializedToolAgent
   }
 
   private async decomposeTasks(task: string, taskRef: AgentTaskRef): Promise<SubTask[]> {
-    const prompt = `Please break down the following task into no more than ${TaskOrientedAgent.MAX_SUBTASKS} subtasks:\n\n${task}\n\nFor each subtask, provide:
+    const prompt = `Break tasks into subtasks.
+Generate subtasks as needed. It is not necessary to generate the maximum number of subtasks every time.
+The task to be broken down is:
+${task}
+For each subtask, please provide: 
 1. id: a unique number
 2. description: clear description of what needs to be done
 3. dependencies: an array of subtask IDs that this subtask depends on (or empty array if none)
+
+Please ensure that the task is not overly decomposed. Only create subtasks that are necessary and meaningful.
 
 Please identify dependencies between subtasks. For example, if a subtask needs the results from previous subtasks, list those subtask IDs in its dependencies.
 
@@ -388,32 +394,15 @@ If all requirements are fully met, output "VALIDATED: true", otherwise output "V
       return 'Unable to generate final summary.';
     }
 
-    const messageModel = await taskRef.createTaskMessage({
-      type: 'editor',
-      description: 'Final Task Summary',
-      payload: '',
-    });
-    taskRef.observer.next(messageModel);
-
-    completion.contentStream.subscribe({
-      next: (chunk) => {
-        if (messageModel.task) {
-          messageModel.task.payload = chunk;
-        }
-        taskRef.observer.next(messageModel);
+    await taskRef.studio.startWithStream(
+      {
+        type: 'editor',
+        description: 'Final Task Summary',
+        payload: '',
       },
-      complete() {
-        if (messageModel.task) {
-          taskRef.completeTaskMessage(messageModel.task);
-        }
-        taskRef.completeMessage(messageModel);
-        taskRef.observer.next(messageModel);
-      },
-      error() {
-        taskRef.completeMessage(messageModel, 'FAILED');
-        taskRef.observer.next(messageModel);
-      },
-    });
+      completion,
+      taskRef.observer,
+    );
 
     return await lastValueFrom(completion.contentStream);
   }

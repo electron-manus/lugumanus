@@ -138,7 +138,8 @@ You should never ask me to do anything, just do it.
 
 export const plannerAgentSystemPrompt = (maxSubtasks: number) =>
   `You are a task planning expert. Given a complex task, you need to break it down into no more than ${maxSubtasks} specific and executable subtasks.
-Each subtask should be clearly defined and be a necessary step for completing the main task. The output should be a list of subtasks in JSON format, with each subtask containing "id" and "description" fields.
+Each subtask should be clearly defined and be a necessary step for completing the main task. Avoid creating unnecessary subtasks for simple tasks.
+The output should be a list of subtasks in JSON format, with each subtask containing "id" and "description" fields.
 You should plan the task for me in the same language as that of the task. `;
 
 export const executorAgentSystemPrompt = () =>
