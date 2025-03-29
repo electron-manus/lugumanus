@@ -1,7 +1,4 @@
-import { writeFileSync } from 'node:fs';
-import path from 'node:path';
 import type { ModelType } from '@prisma/client';
-import { app } from 'electron';
 import type {
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
@@ -84,28 +81,6 @@ export class BaseAgent {
 
     this.messageHistory.push(message);
     this.trimMessageHistory();
-
-    if (taskRef) {
-      const promptsFilePath = path.join(
-        app.getPath('userData'),
-        taskRef.conversationId,
-        'prompts',
-        `${this.name}-${this.uuid}.md`,
-      );
-      writeFileSync(
-        promptsFilePath,
-        JSON.stringify(
-          this.messageHistory.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-            toolCalls: msg.tool_calls,
-            toolCallId: msg.tool_call_id,
-          })),
-          null,
-          2,
-        ),
-      );
-    }
   }
 
   private trimMessageHistory(): void {
@@ -190,7 +165,6 @@ export class BaseAgent {
     toolCalls: ChatCompletionMessageToolCall[],
     tools: SpecializedToolAgent[],
   ): Promise<Array<{ toolCall: ChatCompletionMessageToolCall; result: unknown }> | null> {
-    console.log('🚀 ~ BaseAgent ~ toolCalls:', toolCalls);
     if (!toolCalls.length || !tools.length) {
       return null;
     }
