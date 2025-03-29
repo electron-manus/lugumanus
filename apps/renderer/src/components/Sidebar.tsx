@@ -1,4 +1,10 @@
-import { DeleteOutlined, EditOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DeleteColumnOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  FolderOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { Conversations, type ConversationsProps } from '@ant-design/x';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMemoizedFn } from 'ahooks';
@@ -30,6 +36,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onConversationChange, conversationId 
       },
     }),
   );
+
+  const { mutate: openFolder } = useMutation(trpc.system.openFolder.mutationOptions());
+
   const { mutate: createConversation } = useMutation(
     trpc.conversation.createConversation.mutationOptions({
       onSuccess: (data) => {
@@ -49,22 +58,33 @@ const Sidebar: React.FC<SidebarProps> = ({ onConversationChange, conversationId 
   const menuConfig: ConversationsProps['menu'] = (conversation) => ({
     items: [
       {
+        label: '打开文件夹',
+        key: 'openFolder',
+        icon: <FolderOutlined />,
+      },
+      {
         label: '删除',
         key: 'delete',
         icon: <DeleteOutlined />,
         danger: true,
       },
       {
-        label: '打开文件夹',
-        key: 'openFolder',
-        icon: <FolderOutlined />,
+        label: '删除其他',
+        key: 'deleteOther',
+        icon: <DeleteColumnOutlined />,
+        danger: true,
       },
     ],
     onClick: (menuInfo) => {
       if (menuInfo.key === 'delete') {
         deleteConversation({ id: conversation.key });
       } else if (menuInfo.key === 'openFolder') {
-        // 处理打开文件夹逻辑
+        openFolder(conversation.key);
+      } else if (menuInfo.key === 'deleteOther') {
+        deleteConversation({
+          id: conversation.key,
+          deleteOther: true,
+        });
       }
     },
   });

@@ -61,14 +61,26 @@ const conversationRouter = t.router({
     .input(
       z.object({
         id: z.string(),
+        deleteOther: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      await ctx.prisma.conversation.delete({
-        where: {
-          id: input.id,
-        },
-      });
+      // TODO: 删除会话时，需要删除对应的文件夹等资源
+      if (input.deleteOther) {
+        await ctx.prisma.conversation.deleteMany({
+          where: {
+            id: {
+              not: input.id,
+            },
+          },
+        });
+      } else {
+        await ctx.prisma.conversation.delete({
+          where: {
+            id: input.id,
+          },
+        });
+      }
       return { success: true, id: input.id };
     }),
 

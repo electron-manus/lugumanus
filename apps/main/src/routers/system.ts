@@ -1,3 +1,6 @@
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { app, shell } from 'electron';
 import { z } from 'zod';
 import { t } from '../trpc.js';
 
@@ -51,6 +54,13 @@ const systemRouter = t.router({
   getModelConfig: t.procedure.query(async ({ ctx }) => {
     const modelConfigs = await ctx.prisma.modelConfig.findMany();
     return modelConfigs;
+  }),
+
+  openFolder: t.procedure.input(z.string()).mutation(async ({ input, ctx }) => {
+    const folderPath = path.join(app.getPath('userData'), input);
+
+    await mkdir(folderPath, { recursive: true });
+    await shell.openPath(folderPath);
   }),
 });
 
