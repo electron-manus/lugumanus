@@ -1,8 +1,14 @@
 # (麓咕) LuguManus
 
+[English](./@docs/README.en.md)
+[繁體中文](./@docs/README.zh-TW.md)
+[日本語](./@docs/README.ja.md)
+
 LuguManus 是一款使用 Electron 和 TypeScript 构建的智能化桌面应用框架，它将先进的大型语言模型与实用工具组件深度整合，创造出一个强大的自动化和辅助系统。
 
-<img src="./docs/star.gif" alt="start" width="128" style="display: block; margin: 0 auto;" />
+<div style="text-align: center;">
+    <img src="./docs/star.gif" alt="start"   />
+</div>
 
 ## 主要特点
 
