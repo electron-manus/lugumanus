@@ -6,9 +6,17 @@
 
 LuguManus 是一款使用 Electron 和 TypeScript 构建的智能化桌面应用框架，它将先进的大型语言模型与实用工具组件深度整合，创造出一个强大的自动化和辅助系统。
 
+
+<div style="text-align: center;">
+    <img src="./@docs/demo.gif" alt="start"   />
+</div>
+
+[Bilibili 视频演示](https://www.bilibili.com/video/BV1xnZcYhEWA/)
+
 <div style="text-align: center;">
     <img src="./docs/star.gif" alt="start"   />
 </div>
+
 
 ## 主要特点
 
@@ -18,6 +26,7 @@ LuguManus 是一款使用 Electron 和 TypeScript 构建的智能化桌面应用
 - **响应式数据流**：基于 RxJS 构建的响应式架构，提供流畅的异步消息处理能力
 - **浏览器模拟交互**：通过 Electron 实现的浏览器行为模拟，可执行网页浏览、内容提取、执行网页行为等操作
 - **多模型支持**：支持不同类型的 AI 模型（文本、长文本、代码、图像识别等）
+
 
 ## 技术栈
 
