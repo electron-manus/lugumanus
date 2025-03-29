@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 
@@ -78,8 +77,6 @@ export function extractHtmlContent(html: string) {
       $this.remove();
     }
   });
-
-  writeFileSync('test.html', $('body').html() || '');
 
   return rscContent + extractFormattedText($('body'), $);
 }
