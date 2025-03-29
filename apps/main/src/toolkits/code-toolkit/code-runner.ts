@@ -186,6 +186,24 @@ export class CodeRunnerAgent extends BaseAgent implements SpecializedToolAgent {
         throw new Error(`Unsupported language: ${language}`);
       }
 
+      await taskRef.studio.start(
+        {
+          type: 'editor',
+          description: 'Code Execution Result',
+          payload: `${query.code}
+        
+// output: 
+// ${result}
+// logs:
+// ${logs.join('\n')}
+// errors:
+// ${errors.join('\n')}
+        `,
+        },
+        taskRef.observer,
+        taskRef.abortSignal,
+      );
+
       return yaml.dump({
         success: true,
         result: result !== undefined ? String(result) : 'undefined',
