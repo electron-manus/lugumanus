@@ -6,8 +6,6 @@ import { parseAiResponse } from './utils/response-parser';
 
 import shrinkHtml from './shrink-html';
 
-import { writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { sleep } from 'radash';
 import { ElectronInputSimulator } from './electron-input-simulator';
 import type {
@@ -45,10 +43,9 @@ export class BrowserUse {
   private readonly MAX_CONTENT_BLOCKER_RETRIES = 3; // 添加内容阻塞最大重试次数
 
   // 超时设置
-  private readonly PAGE_LOAD_TIMEOUT = 5000;
+  private readonly MAYBE_PAGE_LOAD = 5000;
   private readonly DEFAULT_TASK_TIMEOUT = 300000; // 默认5分钟任务超时
   private readonly ACTION_DELAY = 1000; // 动作间延迟
-  private readonly LOADING_CHECK_INTERVAL = 500; // 页面加载检查间隔
 
   // API参数
   private readonly DEFAULT_MAX_TOKENS = 5000;
@@ -110,6 +107,7 @@ export class BrowserUse {
   public async loadWebPage(webUrl: string) {
     // 检查当前URL与要加载的URL是否相同，如果相同则不重新加载
     const currentUrl = this.browserSimulator.webContents.getURL();
+    this.logDebug(`Loading web page: ${webUrl}`);
     if (currentUrl === webUrl) {
       return Promise.resolve();
     }
@@ -613,25 +611,8 @@ export class BrowserUse {
 
     if (currentUrl !== previousUrl) {
       this.logDebug('URL changed, waiting for page to finish loading');
-      await Promise.race([
-        new Promise((resolve) => {
-          const checkLoading = async () => {
-            const isLoading = this.browserSimulator.webContents.isLoading();
-            this.logDebug(`Page loading status: ${isLoading}`);
-            if (!isLoading) {
-              resolve(true);
-            } else {
-              setTimeout(checkLoading, this.LOADING_CHECK_INTERVAL);
-            }
-          };
-          checkLoading();
-        }),
-        sleep(this.PAGE_LOAD_TIMEOUT).then(() => {
-          this.logDebug('Page load timeout reached');
-        }),
-      ]);
+      await sleep(this.MAYBE_PAGE_LOAD);
     }
-    this.logDebug('Finished waiting for page load');
   }
 
   // 完成任务并生成总结
@@ -774,10 +755,6 @@ export class BrowserUse {
 
     const screenshotBuffer = screenshot.toJPEG(50);
 
-    if (this.debug) {
-      writeFileSync(path.join(process.cwd(), 'browser-use-screenshot.jpg'), screenshotBuffer);
-    }
-
     const screenshotDataUrl = `data:image/jpeg;base64,${screenshotBuffer.toString('base64')}`;
 
     this.logDebug('Successfully captured webpage content and screenshot');
@@ -833,10 +810,6 @@ export class BrowserUse {
       !domResult.isValidDom || !html
         ? true
         : taskState.forceUseScreenshot || html.length > this.HTML_SIZE;
-
-    if (this.debug) {
-      writeFileSync(path.join(process.cwd(), 'browser-use-capture.html'), html);
-    }
 
     if (isStuckInLoop) {
       const recentEntries = taskState.history.slice(-2);
@@ -946,13 +919,6 @@ ${pageContent}
           response?.includes('[REQUEST_SCREENSHOT]') && !shouldUseScreenshot;
         const action = parseAiResponse(response ?? '', shouldUseScreenshot);
         const usage = completion.usage;
-
-        if (this.debug) {
-          writeFileSync(
-            path.join(process.cwd(), 'browser-use-response.txt'),
-            `response: ${response}\n\nprompt: ${JSON.stringify(messages)}\n`,
-          );
-        }
 
         this.logDebug('🐼 Action', action);
 

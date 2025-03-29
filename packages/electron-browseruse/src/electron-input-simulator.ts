@@ -338,9 +338,11 @@ export class ElectronInputSimulator {
         );
       }
 
+      // 获取元素可点击位置
+      // 中心位置不一定能被点击
       return {
-        x: Math.floor(rect.left + rect.width / 2),
-        y: Math.floor(rect.top + rect.height / 2),
+        x: rect.left + 5,
+        y: rect.top + 5,
       };
     } catch (error) {
       throw new Error(`Failed to get element center: ${(error as Error).message}`);
