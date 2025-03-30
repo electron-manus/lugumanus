@@ -17,6 +17,10 @@ LuguManus 是一款使用 Electron 和 TypeScript 构建的智能化桌面应用
     <img src="./docs/star.gif" alt="start"   />
 </div>
 
+<div style="text-align: center;">
+    <img src="./@docs/group.png" alt="start"   />
+</div>
+
 
 ## 主要特点
 
