@@ -1,16 +1,36 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { watch } from 'node:fs';
+import { platform } from 'node:os';
 import { join, resolve } from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 // @ts-ignore
 import Bun from 'bun';
 import { debounce } from 'lodash';
 import sharePkg from '../../../package.json';
 import pkg from '../package.json';
 
-const ROOT_DIR = resolve(import.meta.dirname, '../');
+// 确保在所有环境下都能获取正确的文件路径
+const getCurrentDir = () => {
+  try {
+    return import.meta.dirname;
+  } catch (e) {
+    // 兼容方案
+    return dirname(fileURLToPath(import.meta.url));
+  }
+};
+
+const ROOT_DIR = resolve(getCurrentDir(), '../');
 const SRC_DIR = join(ROOT_DIR, 'src');
 const DIST_DIR = join(ROOT_DIR, 'dist');
-const ELECTRON_BIN = join(ROOT_DIR, '../../node_modules/.bin/electron');
+
+// 根据不同操作系统设置正确的 Electron 可执行文件名
+const isWindows = platform() === 'win32';
+const ELECTRON_BIN = join(
+  ROOT_DIR,
+  '../../node_modules/.bin/',
+  isWindows ? 'electron.cmd' : 'electron',
+);
 
 let electronProcess: ChildProcess | null = null;
 
@@ -44,7 +64,17 @@ async function compile() {
 // 启动 Electron (使用防抖处理)
 const debouncedStartElectron = debounce(() => {
   if (electronProcess) {
-    electronProcess.kill();
+    try {
+      // 在 Windows 上需要使用不同的方法杀死进程
+      if (isWindows) {
+        electronProcess?.pid &&
+          spawn('taskkill', ['/pid', electronProcess.pid.toString(), '/f', '/t']);
+      } else {
+        electronProcess?.kill();
+      }
+    } catch (error) {
+      console.error('终止旧进程失败:', error);
+    }
     electronProcess = null;
   }
 
@@ -57,6 +87,7 @@ const debouncedStartElectron = debounce(() => {
 
   electronProcess = spawn(ELECTRON_BIN, args, {
     stdio: 'inherit',
+    ...(isWindows ? { shell: true } : {}),
     env: { ...process.env, NODE_ENV: process.env.NODE_ENV || 'development' },
   });
 
@@ -71,15 +102,23 @@ const debouncedStartElectron = debounce(() => {
 function watchFiles() {
   console.log('👀 正在监听文件变化...');
 
-  watch(SRC_DIR, { recursive: true }, async (_, filename) => {
-    if (filename && /\.(ts|tsx|js|jsx)$/.test(filename)) {
-      console.log(`🔄 检测到文件变化: ${filename}`);
-      const success = await compile();
-      if (success) {
-        debouncedStartElectron();
+  try {
+    watch(SRC_DIR, { recursive: true }, async (_, filename) => {
+      if (filename && /\.(ts|tsx|js|jsx)$/.test(filename)) {
+        console.log(`🔄 检测到文件变化: ${filename}`);
+        const success = await compile();
+        if (success) {
+          debouncedStartElectron();
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('监听文件失败:', error);
+    // 如果监听失败，仍然编译并启动一次
+    compile().then((success) => {
+      if (success) debouncedStartElectron();
+    });
+  }
 }
 
 // 主函数
