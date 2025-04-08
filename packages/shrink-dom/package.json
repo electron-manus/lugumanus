@@ -38,19 +38,6 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-  "nx": {
-    "$schema": "../../node_modules/nx/schemas/nx-schema.json",
-    "target": {
-      "build": {
-        "executor": "@nx:run-commands",
-        "defaultConfiguration": "production",
-        "options": {
-          "cwd": "packages/shrink-dom",
-          "commands": ["rolldown --config rolldown.config.ts"]
-        }
-      }
-    }
-  },
   "scripts": {
     "build": "rolldown --config rolldown.config.ts",
     "dev": "rolldown --config rolldown.config.ts --watch",

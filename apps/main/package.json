@@ -4,30 +4,9 @@
   "private": true,
   "type": "module",
   "main": "dist/main.js",
-  "nx": {
-    "$schema": "../../node_modules/nx/schemas/nx-schema.json",
-    "targets": {
-      "push-sqlite": {
-        "executor": "nx:run-commands",
-        "options": {
-          "cwd": "apps/main",
-          "commands": ["prisma db push"]
-        }
-      },
-      "dev": {
-        "dependsOn": ["push-sqlite"],
-        "executor": "nx:run-commands",
-        "defaultConfiguration": "development",
-        "options": {
-          "cwd": "apps/main",
-          "commands": [
-            {
-              "command": "bun run scripts/bootstrap.tsx"
-            }
-          ]
-        }
-      }
-    }
+  "scripts": {
+    "push-sqlite": "prisma db push",
+    "dev": "bun run push-sqlite && bun run scripts/bootstrap.tsx"
   },
   "dependencies": {
     "@lugu-manus/share": "*",

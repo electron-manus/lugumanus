@@ -78,10 +78,10 @@ bun install
 bun run build-deps
 
 # 运行渲染进程
-bun nx run @lugu-manus/renderer:dev
+cd apps/renderer && bun run dev
 
 # 运行主进程
-bun nx run @lugu-manus/main:dev
+cd apps/main && bun run dev
 ```
 
 ## 项目结构
