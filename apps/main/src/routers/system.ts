@@ -9,6 +9,7 @@ const systemRouter = t.router({
     .input(
       z.object({
         apiKey: z.string().min(1),
+        baseURL: z.string(),
         longTextModel: z.string(),
         textModel: z.string(),
         codeModel: z.string(),
@@ -37,13 +38,12 @@ const systemRouter = t.router({
               type: config.type,
               apiKey: input.apiKey,
               name: config.name,
-              //   目前仅支持 qwen
-              apiEndpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+              apiEndpoint: input.baseURL,
             },
             update: {
               apiKey: input.apiKey,
               name: config.name,
-              apiEndpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+              apiEndpoint: input.baseURL,
             },
           }),
         ),

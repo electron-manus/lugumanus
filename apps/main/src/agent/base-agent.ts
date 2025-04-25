@@ -117,6 +117,9 @@ export class BaseAgent {
 
       let generateParams = {} as Omit<ChatCompletionCreateParamsStreaming, 'messages' | 'model'>;
       if (tools?.length) {
+        // 打印所有工具名称，用于检查格式
+        console.log('Tools being sent to API:', tools.map((tool) => `"${tool.name}"`).join(', '));
+
         generateParams.tools = tools.map((tool) => ({
           type: 'function',
           function: {

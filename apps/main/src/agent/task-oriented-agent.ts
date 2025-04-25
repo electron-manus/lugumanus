@@ -25,7 +25,7 @@ type SubTask = {
 };
 
 export class TaskOrientedAgent extends BaseAgent implements SpecializedToolAgent {
-  override readonly name = 'Task-Oriented Agent';
+  override readonly name = 'Task-Oriented-Agent';
   readonly description =
     'An agent that can break down complex tasks into subtasks and complete them step by step.';
   readonly parameters = {
