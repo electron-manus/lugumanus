@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useMemoizedFn } from 'ahooks';
 import { Input, Modal, Select } from 'antd';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { trpc } from '../utils/trpc';
 import { ErrorMessages } from './ErrorMessage';
 
@@ -39,8 +39,29 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
     codeModel: 'qwen-coder-turbo-latest',
   });
 
+  // 组件挂载时从本地存储加载
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('modelSettings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        setApiKey(parsedSettings.apiKey || '');
+        setBaseURL(parsedSettings.baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1');
+        setModelSettings({
+          defaultModel: parsedSettings.defaultModel || 'qwen-max-latest',
+          longTextModel: parsedSettings.longTextModel || 'qwen-long-latest',
+          visionModel: parsedSettings.visionModel || 'qwen-vl-ocr-latest',
+          codeModel: parsedSettings.codeModel || 'qwen-coder-turbo-latest',
+        });
+      } catch (e) {
+        console.error('Failed to parse saved settings', e);
+      }
+    }
+  }, []);
+
+  // 当用户成功保存设置时，同时保存到本地存储
   const handleAuthenticate = useMemoizedFn(async () => {
-    mutation.mutateAsync({
+    const dataToSave = {
       apiKey,
       baseURL,
       longTextModel: modelSettings.longTextModel,
@@ -48,7 +69,17 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
       codeModel: modelSettings.codeModel,
       imageModel: modelSettings.visionModel,
       voiceModel: modelSettings.defaultModel,
-    });
+    };
+
+    // 保存到本地存储
+    localStorage.setItem('modelSettings', JSON.stringify({
+      apiKey,
+      baseURL,
+      ...modelSettings,
+    }));
+
+    // 提交到后端
+    mutation.mutateAsync(dataToSave);
   });
 
   const updateModelSetting = (key: keyof ModelSettings, value: string) => {
