@@ -19,7 +19,7 @@ type Parameters = {
 };
 
 export class DialogueAgent extends BaseAgent implements SpecializedToolAgent {
-  override readonly name = 'dialogue assistant';
+  override readonly name = 'dialogue-assistant';
   readonly description = 'A dialogue assistant that can help you with your questions.';
   readonly parameters = {
     type: 'object',

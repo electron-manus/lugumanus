@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useMemoizedFn } from 'ahooks';
 import { Input, Modal, Select } from 'antd';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { trpc } from '../utils/trpc';
 import { ErrorMessages } from './ErrorMessage';
 
@@ -29,6 +29,9 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
   const errors = mutation.error?.data?.zodError;
 
   const [apiKey, setApiKey] = useState<string>('');
+  const [baseURL, setBaseURL] = useState<string>(
+    'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  );
   const [modelSettings, setModelSettings] = useState<ModelSettings>({
     defaultModel: 'qwen-max-latest',
     longTextModel: 'qwen-long-latest',
@@ -36,15 +39,47 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
     codeModel: 'qwen-coder-turbo-latest',
   });
 
+  // 组件挂载时从本地存储加载
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('modelSettings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        setApiKey(parsedSettings.apiKey || '');
+        setBaseURL(parsedSettings.baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1');
+        setModelSettings({
+          defaultModel: parsedSettings.defaultModel || 'qwen-max-latest',
+          longTextModel: parsedSettings.longTextModel || 'qwen-long-latest',
+          visionModel: parsedSettings.visionModel || 'qwen-vl-ocr-latest',
+          codeModel: parsedSettings.codeModel || 'qwen-coder-turbo-latest',
+        });
+      } catch (e) {
+        console.error('Failed to parse saved settings', e);
+      }
+    }
+  }, []);
+
+  // 当用户成功保存设置时，同时保存到本地存储
   const handleAuthenticate = useMemoizedFn(async () => {
-    mutation.mutateAsync({
+    const dataToSave = {
       apiKey,
+      baseURL,
       longTextModel: modelSettings.longTextModel,
       textModel: modelSettings.defaultModel,
       codeModel: modelSettings.codeModel,
       imageModel: modelSettings.visionModel,
       voiceModel: modelSettings.defaultModel,
-    });
+    };
+
+    // 保存到本地存储
+    localStorage.setItem('modelSettings', JSON.stringify({
+      apiKey,
+      baseURL,
+      ...modelSettings,
+    }));
+
+    // 提交到后端
+    mutation.mutateAsync(dataToSave);
   });
 
   const updateModelSetting = (key: keyof ModelSettings, value: string) => {
@@ -69,66 +104,73 @@ function QwenModelConfigModal({ visible, onClose }: QwenModelConfigModalProps) {
     >
       <div className="space-y-4 pb-10 pt-6">
         <div>
-          <div className="mb-2 text-sm">千问 ApiKey</div>
+          <div className="mb-2 text-sm">ApiKey</div>
           <Input.Password
-            placeholder="请输入千问 ApiKey"
+            placeholder="请输入 ApiKey"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
         </div>
 
+        <div>
+          <div className="mb-2 text-sm">baseURL</div>
+          <Input
+            placeholder="请输入 baseURL"
+            value={baseURL}
+            onChange={(e) => setBaseURL(e.target.value)}
+          />
+        </div>
+
         <div className="pb-4">
           <div className="mb-2 text-sm">默认模型</div>
-          <Select
+          <Input
+            placeholder="请输入模型名称"
             value={modelSettings.defaultModel}
-            className="w-full"
-            onChange={(value) => updateModelSetting('defaultModel', value)}
-            options={[
-              { label: 'qwen-max', value: 'qwen-max-latest' },
-              { label: 'qwen-plus', value: 'qwen-plus-latest' },
-              { label: 'qwen-turbo', value: 'qwen-turbo-latest' },
-              { label: 'qwen-long', value: 'qwen-long-latest' },
-            ]}
+            onChange={(e) => updateModelSetting('defaultModel', e.target.value)}
+            defaultValue="qwen-max-latest"
           />
+          <div className="mt-2 text-xs text-gray-500">
+            常用模型：qwen-max-latest, qwen-plus-latest, qwen-turbo-latest, qwen-long-latest
+          </div>
         </div>
 
         <div className="pb-4">
           <div className="mb-2 text-sm">长文本模型</div>
-          <Select
+          <Input
+            placeholder="请输入长文本模型名称"
             value={modelSettings.longTextModel}
-            className="w-full"
-            onChange={(value) => updateModelSetting('longTextModel', value)}
-            options={[
-              { label: 'qwen-long-latest', value: 'qwen-long-latest' },
-              { label: 'qwen-turbo-latest', value: 'qwen-turbo-latest' },
-            ]}
+            onChange={(e) => updateModelSetting('longTextModel', e.target.value)}
+            defaultValue="qwen-long-latest"
           />
+          <div className="mt-2 text-xs text-gray-500">
+            常用模型：qwen-long-latest, qwen-turbo-latest
+          </div>
         </div>
 
         <div className="pb-4">
           <div className="mb-2 text-sm">图文识别模型</div>
-          <Select
+          <Input
+            placeholder="请输入图文识别模型名称"
             value={modelSettings.visionModel}
-            className="w-full"
-            onChange={(value) => updateModelSetting('visionModel', value)}
-            options={[
-              { label: 'qwen-vl-ocr', value: 'qwen-vl-ocr-latest' },
-              { label: 'qwen-omni-turbo', value: 'qwen-omni-turbo-latest' },
-            ]}
+            onChange={(e) => updateModelSetting('visionModel', e.target.value)}
+            defaultValue="qwen-vl-ocr-latest"
           />
+          <div className="mt-2 text-xs text-gray-500">
+            常用模型：qwen-vl-ocr-latest, qwen-omni-turbo-latest
+          </div>
         </div>
 
         <div>
           <div className="mb-2 text-sm">代码模型</div>
-          <Select
+          <Input
+            placeholder="请输入代码模型名称"
             value={modelSettings.codeModel}
-            className="w-full"
-            onChange={(value) => updateModelSetting('codeModel', value)}
-            options={[
-              { label: 'qwen-coder-turbo', value: 'qwen-coder-turbo-latest' },
-              { label: 'qwen-coder-plus', value: 'qwen-coder-plus-latest' },
-            ]}
+            onChange={(e) => updateModelSetting('codeModel', e.target.value)}
+            defaultValue="qwen-coder-turbo-latest"
           />
+          <div className="mt-2 text-xs text-gray-500">
+            常用模型：qwen-coder-turbo-latest, qwen-coder-plus-latest
+          </div>
         </div>
 
         {errors && <ErrorMessages errors={errors.fieldErrors} />}
